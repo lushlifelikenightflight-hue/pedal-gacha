@@ -1,5 +1,7 @@
 # PEDAL FORGE
 
+公開版: https://lushlifelikenightflight-hue.github.io/pedal-gacha/
+
 選んだ因子から、実在しそうなオリジナルエフェクターを錬成するブラウザ3D工房です。
 
 ## できること
