@@ -22,7 +22,6 @@ type FinishChoice = ColorChoice | 'random';
 type GachaState = 'idle' | 'cranking' | 'revealing' | 'result';
 type WorkflowPhase = 'select' | 'forging' | 'forged' | 'finishing' | 'shipping' | 'shipped';
 type ViewMode = 'stage' | 'studio' | 'hero' | 'white' | 'dark';
-type ShotPreset = 'hero' | 'stage' | 'studio' | 'editorial-cover' | 'open-box' | 'full-kit' | 'social-x';
 type PaletteMode = 'mono' | 'duotone' | 'tritone' | 'multi-accent' | 'sticker-mix' | 'full-graphic';
 type RuntimeMode = 'off' | 'on' | 'play';
 type Enclosure = 'nano' | 'micro' | 'mini' | 'compact' | 'standard125' | 'tall' | 'wide' | 'bigbox' | 'wedge' | 'treadle' | 'digital' | 'utility';
@@ -1106,7 +1105,7 @@ function EditorialResult({ pedal, coverImage, resultRef, resetKey, onPng, onPdf,
   const swipeStart = useRef<number | null>(null);
   const spreadRef = useRef<HTMLDivElement>(null);
   const previousPedal = useRef(pedal.id);
-  const totalPages = 4;
+  const totalPages = 3;
   const visibleStart = spread ? Math.floor(currentPage / 2) * 2 : currentPage;
   const step = spread ? 2 : 1;
   const goToPage = (page: number) => { const next = Math.max(0, Math.min(totalPages - 1, page)); setCurrentPage(next); setPageListOpen(false); if (typeof history !== 'undefined') history.replaceState(null, '', `${location.pathname}${location.search}#editorial-${next + 1}`); };
@@ -1117,94 +1116,76 @@ function EditorialResult({ pedal, coverImage, resultRef, resetKey, onPng, onPdf,
   useEffect(() => { const keys = (event: KeyboardEvent) => { if ((event.target as HTMLElement)?.matches('input, textarea, select')) return; if (event.key === 'ArrowLeft') goToPage(visibleStart - step); if (event.key === 'ArrowRight') goToPage(visibleStart + step); }; window.addEventListener('keydown', keys); return () => window.removeEventListener('keydown', keys); }, [visibleStart, step]);
   const image = (className: string, caption: string, alt: string) => <figure className={'editorial-photo ' + className}>{coverImage ? <img src={coverImage} alt={alt} /> : <div className="cover-photo-loading">DEVELOPING PHOTOGRAPH</div>}<figcaption>{caption}</figcaption></figure>;
   const soundKeyword = pedal.type.split(' ').slice(0, 2).join(' ');
-  const openingSpread = <article className={pageClass(0, 'editorial-opening-spread')} key="opening-spread">
-    <div className="opening-spread-photo">{coverImage ? <img src={coverImage} alt={pedal.name + ' の見開き宣材写真'} /> : <div className="cover-photo-loading">DEVELOPING HERO PHOTOGRAPH</div>}</div>
-    <header className="opening-spread-masthead"><span>{pedal.brand?.manufacturerName || pedal.brandLabel}</span><b>{pedal.name}</b><small>ONE OF ONE / VOL. {issue}</small></header>
-    <section className="opening-info-card info-sound"><span>01 / SOUND</span><b>{soundKeyword}</b><p>{pedal.copy}。</p></section>
-    <section className="opening-info-card info-build"><span>02 / BUILD</span><b>{enclosureLabel}</b><p>{pedal.effectArchitecture || pedal.type}</p></section>
-    <section className="opening-info-card info-control"><span>03 / CONTROL</span><b>{controlLabel}</b><p>{controlCount ? controlNames.slice(0, 5).join(' / ') : 'ONE SWITCH'}</p></section>
-    <section className="opening-info-card info-use"><span>04 / PLAY</span><b>{pedal.type}</b><p>{pedal.usage}</p></section>
-  </article>;
+  const maker = pedal.brand?.manufacturerName || pedal.brandLabel || 'FURNACE AUDIO WORKS';
+  const warrantyDate = new Intl.DateTimeFormat('en-CA', { year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
   const pages = [
     <article className={pageClass(0, 'editorial-mobile-hero')} key="cover">
       <div className="mobile-hero-photo">{coverImage ? <img src={coverImage} alt={pedal.name + ' の宣材写真'} /> : <div className="cover-photo-loading">DEVELOPING HERO PHOTOGRAPH</div>}</div>
       <div className="mobile-hero-copy"><span>{pedal.brand?.manufacturerName || pedal.brandLabel}</span><h2>{pedal.name}</h2><p>{pedal.copy}。</p></div>
     </article>,
-    <article className={pageClass(1, 'editorial-mobile-facts')} key="sound">
-      <div className="mobile-facts-photo">{coverImage ? <img src={coverImage} alt={pedal.name + ' の製品写真'} /> : <div className="cover-photo-loading">DEVELOPING PRODUCT PHOTOGRAPH</div>}</div>
-      <div className="mobile-facts-grid"><section><span>SOUND</span><b>{soundKeyword}</b></section><section><span>BUILD</span><b>{enclosureLabel}</b></section><section><span>CONTROL</span><b>{controlLabel}</b></section><section><span>PLAY</span><b>{pedal.type}</b></section></div>
+    <article className={pageClass(1, 'editorial-explainer-page')} key="guide">
+      <header><p className="editorial-number">02 / QUICK GUIDE</p><h3>ABOUT<br />THIS PEDAL.</h3><p>{pedal.copy}。</p></header>
+      <div className="editorial-explainer-grid">
+        <section><span>01 / SOUND</span><b>{soundKeyword}</b><p>{pedal.type}を軸に、演奏の輪郭と質感をこの一台らしいバランスへ整えます。</p></section>
+        <section><span>02 / BUILD</span><b>{enclosureLabel}</b><p>{pedal.effectArchitecture || pedal.type}の回路構成を、この筐体サイズへ収めています。</p></section>
+        <section><span>03 / CONTROL</span><b>{controlLabel}</b><p>{controlCount ? controlNames.slice(0, 5).join(' / ') + 'を使って音を追い込みます。' : 'フットスイッチだけで直感的に操作できます。'}</p></section>
+        <section><span>04 / PLAY</span><b>{pedal.type}</b><p>{pedal.usage}に向いたセッティングです。</p></section>
+      </div>
     </article>,
-    <article className={pageClass(2, 'editorial-square-page')} key="design">
-      <header><p className="editorial-number">03 / PRODUCT PORTRAIT</p><h3>{pedal.name}</h3><p>{controlCount ? controlNames.slice(0, 6).join(' / ') : pedal.type}</p></header>
-      <figure className="editorial-square-image">{coverImage ? <img src={coverImage} alt={pedal.name + ' の正方形製品写真'} /> : <div className="cover-photo-loading">DEVELOPING SQUARE PHOTOGRAPH</div>}<figcaption>{ioLabel} / {enclosureLabel}</figcaption></figure>
+    <article className={pageClass(2, 'editorial-warranty-page')} key="warranty">
+      <div className="warranty-kicker">PEDAL FORGE / LIMITED WARRANTY</div>
+      <div className="warranty-seal" aria-hidden="true"><span>ONE</span><b>YEAR</b><small>LIMITED</small></div>
+      <header><p>CERTIFICATE OF</p><h3>WARRANTY</h3><span>This certificate confirms that the product identified below is covered by the manufacturer's limited warranty.</span></header>
+      <dl className="warranty-fields">
+        <div><dt>EFFECT PEDAL</dt><dd>{pedal.name}</dd></div>
+        <div><dt>SERIAL NUMBER</dt><dd>{pedal.serial}</dd></div>
+        <div><dt>DATE OF ISSUE</dt><dd>{warrantyDate}</dd></div>
+        <div><dt>MANUFACTURER</dt><dd>{maker}</dd></div>
+      </dl>
+      <footer><span>AUTHORIZED AND RECORDED</span><b>{maker}</b></footer>
     </article>,
-    <article className={pageClass(3, 'editorial-package-page')} key="package">
-      <PackageSetVisual pedal={pedal} coverImage={coverImage} />
-      <div className="package-overlay-copy"><p className="editorial-number">04 / PACKAGE</p><h3>READY<br />TO SHIP.</h3><p>本体、箱、説明書、シリアルカード。</p></div>
-    </article>,
-  ];  const openingSpreadMode = spread && visibleStart === 0;
-  const visiblePages = openingSpreadMode ? [openingSpread] : pages.slice(visibleStart, visibleStart + step);
-  if (spread && !openingSpreadMode && visiblePages.length === 1) visiblePages.push(<article className="manual-page blank-page" key="blank" aria-hidden="true" />);  const pageLabels = ['表紙', '音のキャラクター', '操作とデザイン', 'パッケージ'];
+  ];
+  const visiblePages = pages.slice(visibleStart, visibleStart + step);
+  if (spread && visiblePages.length === 1) visiblePages.push(<article className="manual-page blank-page" key="blank" aria-hidden="true" />);
+  const pageLabels = ['表紙', '簡単な解説', '保証書'];
   return <section className={`result editorial-result manual-viewer promo-${promo.layout} placement-${promo.imagePlacement} density-${promo.informationDensity}`} ref={resultRef} aria-live="polite" style={{ '--accent': pedal.palette[0], '--cover-base': pedal.palette[1], '--brand-accent': pedal.brand?.signatureColor || pedal.palette[0] } as React.CSSProperties}>
-    <header className="manual-header"><div><span>04 / SHIPPED — PEDAL FORGE EDITORIAL {issue}</span><b>{pedal.name}</b></div><small>{spread ? 'DESKTOP SPREAD' : 'SINGLE PAGE'} / 4 PAGES</small></header>
+    <header className="manual-header"><div><span>04 / SHIPPED — PEDAL FORGE EDITORIAL {issue}</span><b>{pedal.name}</b></div><small>{spread ? 'DESKTOP SPREAD' : 'SINGLE PAGE'} / 3 PAGES</small></header>
     <nav className="manual-chapter-rail" aria-label="宣材ページの章">{pageLabels.map((label, index) => <button type="button" key={label} className={index >= visibleStart && index < visibleStart + step ? 'active' : ''} onClick={() => goToPage(index)}><span>{String(index + 1).padStart(2, '0')}</span><b>{label}</b></button>)}</nav>
-    <div ref={spreadRef} className={'manual-spread ' + (spread ? 'is-spread' : 'is-single') + (openingSpreadMode ? ' has-opening-spread' : '')} onTouchStart={event => { swipeStart.current = event.touches[0].clientX; }} onTouchEnd={event => { if (swipeStart.current == null) return; const delta = event.changedTouches[0].clientX - swipeStart.current; if (Math.abs(delta) > 54) goToPage(visibleStart + (delta < 0 ? step : -step)); swipeStart.current = null; }}>{visiblePages.map((page, index) => <EditorialPageFrame key={openingSpreadMode ? 'opening-spread' : visibleStart + index} page={page} pageNumber={visibleStart + index + 1} hasOverflow={overflowPages.includes(visibleStart + index)} openingSpread={openingSpreadMode} />)}</div>
+    <div ref={spreadRef} className={'manual-spread ' + (spread ? 'is-spread' : 'is-single')} onTouchStart={event => { swipeStart.current = event.touches[0].clientX; }} onTouchEnd={event => { if (swipeStart.current == null) return; const delta = event.changedTouches[0].clientX - swipeStart.current; if (Math.abs(delta) > 54) goToPage(visibleStart + (delta < 0 ? step : -step)); swipeStart.current = null; }}>{visiblePages.map((page, index) => <EditorialPageFrame key={visibleStart + index} page={page} pageNumber={visibleStart + index + 1} hasOverflow={overflowPages.includes(visibleStart + index)} />)}</div>
     <nav className="manual-pagination" aria-label="宣材ページ送り"><button type="button" onClick={() => goToPage(visibleStart - step)} disabled={visibleStart === 0} aria-label="前のページ">←</button><button type="button" className="page-index-button" onClick={() => setPageListOpen(open => !open)} aria-expanded={pageListOpen}>{spread ? `${visibleStart + 1}–${Math.min(totalPages, visibleStart + 2)} / ${totalPages}` : `${visibleStart + 1} / ${totalPages}`}</button><button type="button" onClick={() => goToPage(visibleStart + step)} disabled={visibleStart + step >= totalPages} aria-label="次のページ">→</button>{pageListOpen && <div className="manual-page-list">{pageLabels.map((label, index) => <button type="button" key={label} className={index >= visibleStart && index < visibleStart + step ? 'active' : ''} onClick={() => goToPage(index)}><span>{String(index + 1).padStart(2, '0')}</span>{label}</button>)}</div>}</nav>
     <details className="technical-details-drawer"><summary>DETAILS / 製品情報を見る</summary><dl><div><dt>MODEL</dt><dd>{pedal.modelNumber || pedal.serial}</dd></div><div><dt>TYPE</dt><dd>{pedal.type}</dd></div><div><dt>CONTROLS</dt><dd>{controlNames.join(' / ') || 'FIXED CIRCUIT'}</dd></div><div><dt>I/O</dt><dd>{(pedal.ioChannels || 'mono').toUpperCase()} / {ioLabel}</dd></div><div><dt>POWER</dt><dd>{pedal.power}</dd></div><div><dt>SIZE</dt><dd>{pedal.dimensions} / {pedal.weight}</dd></div></dl></details>
     <div className="actions editorial-actions"><button onClick={onPng}>完成品PNG</button><button onClick={onPdf}>製品情報PDF</button><button className="outline" onClick={onReforge}>同じ思想でもう一台</button></div>
   </section>;
 }
-const sharePresetLabels: Record<ShotPreset, string> = { hero: 'HERO', stage: 'STAGE', studio: 'STUDIO', 'editorial-cover': 'EDITORIAL', 'open-box': 'OPEN BOX', 'full-kit': 'FULL KIT', 'social-x': 'SOCIAL X' };
-const sharePresets = Object.keys(sharePresetLabels) as ShotPreset[];
-const normalizeHashtag = (value: string) => { const cleaned = value.trim().replace(/^#+/, '').replace(/[\s#]+/g, ''); return cleaned ? `#${cleaned}` : ''; };
-const shareSuggestionsFor = (pedal: Pedal) => {
-  const effectTag: Partial<Record<EffectCategory, string>> = { fuzz: '#Fuzz', delay: '#Delay', reverb: '#Reverb', drive: '#Overdrive', modulation: '#Modulation', synth: '#Synth', compressor: '#Compressor', filter: '#Filter' };
-  const sourceTags: Partial<Record<InputSource, string>> = { guitar: '#ギター', bass: '#ベース', 'synth-keys': '#シンセ', 'drum-sampler': '#ドラムマシン', 'acoustic-piezo': '#アコースティック', 'electric-strings': '#弦楽器' };
-  return [...new Set([effectTag[categoryFor(pedal.type)], ...(pedal.inputSources || []).map(source => sourceTags[source])].filter((tag): tag is string => Boolean(tag)))];
-};
 const loadShareImage = (url: string) => new Promise<HTMLImageElement>((resolve, reject) => { const image = new Image(); image.onload = () => resolve(image); image.onerror = reject; image.src = url; });
 const canvasBlob = (canvas: HTMLCanvasElement) => new Promise<Blob>((resolve, reject) => canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('PNG_ENCODE_FAILED')), 'image/png'));
-const drawCoverImage = (ctx: CanvasRenderingContext2D, image: HTMLImageElement, x: number, y: number, width: number, height: number) => { const scale = Math.min(width / image.width, height / image.height); const drawWidth = image.width * scale; const drawHeight = image.height * scale; ctx.drawImage(image, x + (width - drawWidth) / 2, y + (height - drawHeight) / 2, drawWidth, drawHeight); };
+const drawCoverCrop = (ctx: CanvasRenderingContext2D, image: HTMLImageElement, width: number, height: number) => { const scale = Math.max(width / image.width, height / image.height); const drawWidth = image.width * scale; const drawHeight = image.height * scale; ctx.drawImage(image, (width - drawWidth) / 2, (height - drawHeight) / 2, drawWidth, drawHeight); };
 const drawFittedCanvasText = (ctx: CanvasRenderingContext2D, text: string, x: number, y: number, maxWidth: number, maxSize: number, minSize: number, family = 'Arial') => { let size = maxSize; do { ctx.font = `900 ${size}px ${family}`; if (ctx.measureText(text).width <= maxWidth) break; size -= 2; } while (size > minSize); ctx.fillText(text, x, y); };
-async function createShareShot(pedal: Pedal, sourceImage: string, preset: ShotPreset): Promise<Blob> {
-  const canvas = document.createElement('canvas'); canvas.width = 1200; canvas.height = preset === 'social-x' || preset === 'open-box' || preset === 'full-kit' ? 675 : 1200;
+const drawWrappedCanvasText = (ctx: CanvasRenderingContext2D, text: string, x: number, y: number, maxWidth: number, lineHeight: number, maxLines: number) => { const chars = [...text]; let line = ''; let lineIndex = 0; for (const char of chars) { const next = line + char; if (ctx.measureText(next).width > maxWidth && line) { ctx.fillText(line, x, y + lineIndex * lineHeight); line = char; lineIndex += 1; if (lineIndex >= maxLines) return; } else line = next; } if (line && lineIndex < maxLines) ctx.fillText(line, x, y + lineIndex * lineHeight); };
+async function createEditorialCoverShare(pedal: Pedal, sourceImage: string): Promise<Blob> {
+  const canvas = document.createElement('canvas'); canvas.width = 720; canvas.height = 980;
   const ctx = canvas.getContext('2d'); if (!ctx) throw new Error('CANVAS_UNAVAILABLE');
-  const accent = pedal.palette[0]; const base = pedal.palette[1];
+  ctx.fillStyle = pedal.palette[1]; ctx.fillRect(0, 0, canvas.width, canvas.height);
   const image = sourceImage ? await loadShareImage(sourceImage).catch(() => null) : null;
-  const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height); gradient.addColorStop(0, preset === 'studio' ? '#f4f3ee' : base); gradient.addColorStop(1, preset === 'studio' ? '#d9ddd6' : '#090d0a'); ctx.fillStyle = gradient; ctx.fillRect(0, 0, canvas.width, canvas.height);
-  if (preset === 'open-box' || preset === 'full-kit') {
-    ctx.save(); ctx.translate(80, 28); ctx.fillStyle = '#6f5942'; ctx.beginPath(); ctx.moveTo(65, 185); ctx.lineTo(725, 96); ctx.lineTo(915, 230); ctx.lineTo(248, 335); ctx.closePath(); ctx.fill(); ctx.fillStyle = '#bda98b'; ctx.beginPath(); ctx.moveTo(90, 205); ctx.lineTo(720, 126); ctx.lineTo(865, 226); ctx.lineTo(245, 310); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = '#342c23'; ctx.beginPath(); ctx.moveTo(180, 310); ctx.lineTo(905, 240); ctx.lineTo(1010, 515); ctx.lineTo(265, 585); ctx.closePath(); ctx.fill(); ctx.fillStyle = '#151914'; ctx.beginPath(); ctx.moveTo(225, 338); ctx.lineTo(850, 280); ctx.lineTo(928, 485); ctx.lineTo(302, 545); ctx.closePath(); ctx.fill();
-    if (image) { ctx.save(); ctx.beginPath(); ctx.moveTo(285, 350); ctx.lineTo(765, 305); ctx.lineTo(820, 465); ctx.lineTo(340, 510); ctx.closePath(); ctx.clip(); drawCoverImage(ctx, image, 270, 285, 570, 250); ctx.restore(); }
-    ctx.restore(); ctx.save(); ctx.translate(870, 360); ctx.rotate(-.055); ctx.fillStyle = '#f0ede4'; ctx.shadowColor = 'rgba(0,0,0,.28)'; ctx.shadowBlur = 18; ctx.fillRect(0, 0, 220, 255); ctx.fillStyle = '#171b17'; ctx.font = '700 22px Arial'; ctx.fillText("OWNER'S MANUAL", 22, 38); ctx.font = '700 30px Arial'; ctx.fillText(pedal.name.slice(0, 13), 22, 86); ctx.fillStyle = accent; ctx.fillRect(22, 112, 130, 8); ctx.restore(); ctx.save(); ctx.translate(900, 560); ctx.rotate(.035); ctx.fillStyle = '#171b17'; ctx.fillRect(0, 0, 230, 75); ctx.fillStyle = '#f4f1e8'; ctx.font = '700 18px monospace'; ctx.fillText('SERIAL / ONE OF ONE', 16, 26); ctx.fillText(pedal.serial.slice(0, 20), 16, 54); ctx.restore();
-  } else if (image) {
-    const imageArea = preset === 'editorial-cover' ? { x: 390, y: 70, width: 740, height: canvas.height - 140 } : preset === 'social-x' ? { x: 470, y: 40, width: 690, height: 595 } : { x: 90, y: 110, width: 1020, height: 870 };
-    drawCoverImage(ctx, image, imageArea.x, imageArea.y, imageArea.width, imageArea.height);
-  }
-  ctx.fillStyle = preset === 'studio' ? '#151915' : '#f3f5ed'; drawFittedCanvasText(ctx, pedal.brand?.manufacturerName || pedal.brandLabel || 'FURNACE AUDIO WORKS', 64, 64, canvas.width - 128, 26, 16); ctx.fillStyle = accent; ctx.fillRect(64, 82, 145, 9);
-  if (preset === 'social-x' || preset === 'editorial-cover') { ctx.fillStyle = '#f3f5ed'; const words = pedal.name.replace(' // LIMITED', '').split(' '); words.slice(0, 3).forEach((word, index) => drawFittedCanvasText(ctx, word, 64, 200 + index * 78, 350, 72, 38)); ctx.font = '700 25px monospace'; ctx.fillStyle = accent; drawFittedCanvasText(ctx, pedal.type.toUpperCase(), 66, 475, 350, 25, 16, 'monospace'); }
-  ctx.fillStyle = preset === 'studio' ? '#151915' : '#f3f5ed'; ctx.font = '900 34px Arial'; ctx.fillText('PEDAL FORGE', 64, canvas.height - 48); ctx.font = '700 19px monospace'; ctx.fillStyle = accent; ctx.fillText(sharePresetLabels[preset], canvas.width - 210, canvas.height - 50);
+  if (image) drawCoverCrop(ctx, image, canvas.width, canvas.height);
+  const shade = ctx.createLinearGradient(0, 330, 0, canvas.height); shade.addColorStop(0, 'rgba(7,11,8,0)'); shade.addColorStop(.54, 'rgba(7,11,8,.34)'); shade.addColorStop(1, 'rgba(7,11,8,.92)'); ctx.fillStyle = shade; ctx.fillRect(0, 0, canvas.width, canvas.height);
+  const maker = pedal.brand?.manufacturerName || pedal.brandLabel || 'FURNACE AUDIO WORKS';
+  ctx.fillStyle = pedal.palette[0]; ctx.font = '800 18px monospace'; ctx.fillText(maker.toUpperCase(), 52, 706);
+  ctx.fillStyle = '#f4f5ed'; const words = pedal.name.replace(' // LIMITED', '').split(' '); const title = words.length > 2 ? words.slice(0, 2).join(' ') : words.join(' '); drawFittedCanvasText(ctx, title, 52, 800, 616, 88, 44);
+  ctx.fillStyle = '#f4f5ed'; ctx.font = '600 22px Georgia, serif'; drawWrappedCanvasText(ctx, pedal.copy + '。', 54, 858, 590, 34, 3);
+  ctx.fillStyle = pedal.palette[0]; ctx.fillRect(52, 932, 126, 8); ctx.fillStyle = '#f4f5ed'; ctx.font = '800 16px monospace'; ctx.fillText('PEDAL FORGE / EDITORIAL 01', 198, 940);
   return canvasBlob(canvas);
 }
 function downloadShareFile(file: File) { const url = URL.createObjectURL(file); const anchor = document.createElement('a'); anchor.href = url; anchor.download = file.name; anchor.click(); window.setTimeout(() => URL.revokeObjectURL(url), 1000); }
 function SharePanel({ pedal, sourceImage, onNotice }: { pedal: Pedal; sourceImage: string; onNotice: (message: string) => void }) {
-  const fixedTags = ['#PEDALFORGE', '#エフェクター錬成']; const suggestions = useMemo(() => shareSuggestionsFor(pedal), [pedal]);
-  const [body, setBody] = useState(`PEDAL FORGEで「${pedal.name.replace(' // LIMITED', '')}」を錬成しました。\n${pedal.type} / ${inputSourceSummary(pedal.inputSources?.length ? pedal.inputSources : ['guitar'])}`);
-  const [selectedTags, setSelectedTags] = useState<string[]>(suggestions); const [customTags, setCustomTags] = useState(''); const [preset, setPreset] = useState<ShotPreset>('social-x'); const [preview, setPreview] = useState(''); const [busy, setBusy] = useState(false);
-  useEffect(() => { setBody(`PEDAL FORGEで「${pedal.name.replace(' // LIMITED', '')}」を錬成しました。\n${pedal.type} / ${inputSourceSummary(pedal.inputSources?.length ? pedal.inputSources : ['guitar'])}`); setSelectedTags(shareSuggestionsFor(pedal)); setCustomTags(''); setPreset('social-x'); }, [pedal.id]);
-  useEffect(() => { let active = true; let url = ''; void createShareShot(pedal, sourceImage, preset).then(blob => { if (!active) return; url = URL.createObjectURL(blob); setPreview(url); }).catch(() => setPreview('')); return () => { active = false; if (url) URL.revokeObjectURL(url); }; }, [pedal, sourceImage, preset]);
-  const tags = [...fixedTags, ...selectedTags, ...customTags.split(/[\s,、]+/).map(normalizeHashtag).filter(Boolean)]; const text = [body.trim(), [...new Set(tags)].join(' ')].filter(Boolean).join('\n\n');
-  const makeFile = async () => { const blob = await createShareShot(pedal, sourceImage, preset); return new File([blob], `${pedal.serial}-${preset}.png`, { type: 'image/png' }); };
-  const savePng = async () => { setBusy(true); try { downloadShareFile(await makeFile()); onNotice('SHARE PNG SAVED'); } catch { onNotice('PNG EXPORT FAILED'); } finally { setBusy(false); } };
-  const copyText = async () => { try { await navigator.clipboard?.writeText(text); onNotice('POST TEXT COPIED'); } catch { onNotice('COPY FAILED'); } };
-  const share = async () => { setBusy(true); try { const file = await makeFile(); const shareData: ShareData = { files: [file], text, title: `${pedal.name} / PEDAL FORGE` }; if (navigator.share && navigator.canShare?.({ files: [file] })) { await navigator.share(shareData); onNotice('SHARE SHEET OPENED'); } else { downloadShareFile(file); try { await navigator.clipboard?.writeText(text); } catch { /* clipboard may be unavailable */ } const anchor = document.createElement('a'); anchor.href = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`; anchor.target = '_blank'; anchor.rel = 'noopener noreferrer'; anchor.click(); onNotice('PNG SAVED / POST TEXT COPIED / X OPENED'); } } catch (error) { if ((error as DOMException)?.name !== 'AbortError') onNotice('SHARE FAILED'); } finally { setBusy(false); } };
-  return <section className="share-panel share-quiet-editorial" aria-labelledby="share-title">
-    <header className="share-hero-copy"><span>FINAL STEP / 09</span><h2 id="share-title">THIS PEDAL<br />IS READY TO LEAVE.</h2><p>完成した一台を、画像と投稿文に整えてXへ送り出します。</p></header>
-    <div className="share-grid"><div className="share-visual-column"><div className="share-preview">{preview ? <img src={preview} alt={`${sharePresetLabels[preset]}共有画像プレビュー`} /> : <span>DEVELOPING SOCIAL PHOTOGRAPH…</span>}</div><div className="share-presets" aria-label="共有画像の構図">{sharePresets.map(option => <button type="button" key={option} className={preset === option ? 'active' : ''} onClick={() => setPreset(option)}><span>{String(sharePresets.indexOf(option) + 1).padStart(2, '0')}</span>{sharePresetLabels[option]}</button>)}</div></div>
-      <div className="share-editor"><div className="share-editor-section"><div className="share-editor-label"><b>POST TEXT</b><span>{text.length} / 280</span></div><textarea value={body} onChange={event => setBody(event.target.value)} rows={7} aria-label="X投稿文" /></div>
-        <div className="share-tags share-editor-section"><div className="share-editor-label"><b>HASHTAGS</b><span>クリックで追加・解除</span></div><div>{fixedTags.map(tag => <button type="button" key={tag} className="locked" aria-pressed="true" title="固定ハッシュタグ">{tag}</button>)}{suggestions.map(tag => <button type="button" key={tag} className={selectedTags.includes(tag) ? 'active' : ''} aria-pressed={selectedTags.includes(tag)} onClick={() => setSelectedTags(current => current.includes(tag) ? current.filter(item => item !== tag) : [...current, tag])}>{tag}</button>)}</div><input value={customTags} onChange={event => setCustomTags(event.target.value)} placeholder="#追加タグ" aria-label="追加ハッシュタグ" /></div>
-        <button type="button" className="share-primary" onClick={share} disabled={busy}>{busy ? 'SHARE IMAGEを生成中…' : 'この一台をXへ送る →'}</button><div className="share-secondary-actions"><button type="button" onClick={savePng} disabled={busy}>PNGを保存</button><button type="button" onClick={copyText}>投稿文をコピー</button></div><p className="share-fallback-note">画像共有非対応の環境では、PNG保存 → 投稿文コピー → X投稿画面の順に開きます。</p>
-      </div></div>
+  const [preview, setPreview] = useState(''); const [busy, setBusy] = useState(false);
+  const text = `PEDAL FORGEで「${pedal.name.replace(' // LIMITED', '')}」を錬成しました。\n${pedal.type} / ${inputSourceSummary(pedal.inputSources?.length ? pedal.inputSources : ['guitar'])}\n\n#PEDALFORGE #エフェクター錬成`;
+  useEffect(() => { let active = true; let url = ''; void createEditorialCoverShare(pedal, sourceImage).then(blob => { if (!active) return; url = URL.createObjectURL(blob); setPreview(url); }).catch(() => setPreview('')); return () => { active = false; if (url) URL.revokeObjectURL(url); }; }, [pedal, sourceImage]);
+  const makeFile = async () => new File([await createEditorialCoverShare(pedal, sourceImage)], `${pedal.serial}-editorial-page-01.png`, { type: 'image/png' });
+  const share = async () => { setBusy(true); try { const file = await makeFile(); const shareData: ShareData = { files: [file], text, title: `${pedal.name} / PEDAL FORGE` }; if (navigator.share && navigator.canShare?.({ files: [file] })) { await navigator.share(shareData); onNotice('X SHARE SHEET OPENED'); } else { downloadShareFile(file); try { await navigator.clipboard?.writeText(text); } catch { } const anchor = document.createElement('a'); anchor.href = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`; anchor.target = '_blank'; anchor.rel = 'noopener noreferrer'; anchor.click(); onNotice('PAGE 01 SAVED / X OPENED'); } } catch (error) { if ((error as DOMException)?.name !== 'AbortError') onNotice('X SHARE FAILED'); } finally { setBusy(false); } };
+  return <section className="share-panel share-quiet-editorial x-share-only" aria-labelledby="share-title">
+    <header className="share-hero-copy"><span>FINAL STEP</span><h2 id="share-title">SHARE<br />ON X.</h2><p>宣材ページの1ページ目を、そのままXのシェア画像にします。</p></header>
+    <div className="share-grid"><div className="share-preview">{preview ? <img src={preview} alt="宣材ページ1ページ目のX共有画像プレビュー" /> : <span>DEVELOPING EDITORIAL PAGE 01…</span>}</div><div className="x-share-action"><span>EDITORIAL PAGE / 01</span><p>画像と投稿文をまとめてXへ送ります。</p><button type="button" className="share-primary" onClick={share} disabled={busy}>{busy ? 'シェア画像を準備中…' : 'Xでシェアする →'}</button></div></div>
   </section>;
 }
 const stored = (): Pedal[] => { try { return JSON.parse(localStorage.getItem('pedal-gacha-v2') || '[]'); } catch { return []; } };
@@ -1288,7 +1269,7 @@ export default function App() {
     <section className="hero" id="top">
       <div className="intro">
         <p className="eyebrow">ORIGINAL EFFECTS PEDAL GENERATOR</p><h1>CREATE YOUR<br /><em>OWN PEDAL.</em></h1>
-        <p className="hero-declaration">まだ存在しない、あなただけのエフェクターを。</p>
+        <p className="hero-declaration">まだ存在しない、<br />あなただけのエフェクターを。</p>
         <p className="lede">筐体・ノブ・接続端子・グラフィック・回路仕様まで組み合わせ、実在しそうなオリジナルエフェクターを一台ずつ生成します。</p>
         <div className="form">
           <div className="workflow-location selection-location"><span>01 / SELECT</span><b>選択</b><small>音と外観の思想を決める</small></div>
@@ -1327,7 +1308,7 @@ export default function App() {
       {phase === 'revealing' && <div className="reveal-flash" aria-hidden="true" />}
       {phase === 'result' && pedal && workflow === 'forged' && <aside className="stage-finish-card">
         <div className="workflow-location"><span>03 / FINISH</span><b>最終加工</b></div>
-        <h2>完成した3Dを見ながら、最後の印を。</h2>
+        <h2>デコってこ。</h2>
         <p>署名・ステッカーは任意です。</p>
         <button type="button" onClick={beginFinishing}>最終仕上げ</button>
       </aside>}
@@ -1339,7 +1320,7 @@ export default function App() {
     </section>
     {phase === 'result' && pedal && <section className={'post-forge-flow workflow-' + workflow}>
       <div className="finish-shipping-grid shipping-only">
-        <article className={workflow === 'shipping' || workflow === 'shipped' ? 'workflow-card active shipping-card' : 'workflow-card shipping-card'}><div className="workflow-location"><span>04 / SHIP</span><b>出荷</b></div><h2>この姿で、世に送り出す。</h2><p>出荷時点の3D、署名、ステッカー、ブランド情報から宣材4ページとシェア画像を作成します。</p><button type="button" onClick={ship} disabled={workflow === 'shipping'}>{workflow === 'shipping' ? '出荷準備中…' : workflow === 'shipped' ? '現在の状態で再出荷' : 'この一台を出荷する'}</button></article>
+        <article className={workflow === 'shipping' || workflow === 'shipped' ? 'workflow-card active shipping-card' : 'workflow-card shipping-card'}><div className="workflow-location"><span>04 / SHIP</span><b>出荷</b></div><h2>パッケージングしていこう。</h2><p>出荷時点の3D、署名、ステッカー、ブランド情報から宣材3ページとXシェア画像を作成します。</p><button type="button" onClick={ship} disabled={workflow === 'shipping'}>{workflow === 'shipping' ? '出荷準備中…' : workflow === 'shipped' ? '現在の状態で再出荷' : 'この一台を出荷する'}</button></article>
       </div>
     </section>}
     {phase === 'result' && pedal && workflow === 'shipped' && <EditorialResult pedal={pedal} coverImage={coverImage} resultRef={resultRef} resetKey={manualReset} onPng={png} onPdf={pdf} onReforge={run} />}

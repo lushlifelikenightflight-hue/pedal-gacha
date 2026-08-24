@@ -1982,6 +1982,45 @@
   letter-spacing: -.025em;
   text-wrap: balance;
 }
+
+/* THREE-PAGE EDITORIAL + X-ONLY FINAL STEP — 2026-08-24 */
+.hero-declaration{white-space:normal}
+.manual-chapter-rail{grid-template-columns:repeat(3,minmax(110px,1fr))}
+.editorial-explainer-page{display:grid!important;grid-template-rows:auto minmax(0,1fr);gap:4cqw;padding:6cqw!important;background:#eeeee7;color:#121712}
+.editorial-explainer-page>header{height:auto;padding:0;border:0}
+.editorial-explainer-page>header h3{max-width:8em;margin:1.2cqw 0 1.5cqw;font-size:clamp(2.2rem,6.5cqw,4.5rem);line-height:.82;letter-spacing:-.06em}
+.editorial-explainer-page>header>p:last-child{max-width:34em;margin:0;font-size:clamp(.72rem,1.15cqw,.94rem);line-height:1.75}
+.editorial-explainer-grid{display:grid;grid-template-columns:1fr 1fr;gap:1px;min-height:0;background:#b8beb4}
+.editorial-explainer-grid section{display:grid;align-content:start;gap:.8cqw;padding:2.2cqw;background:#e2e8dc}
+.editorial-explainer-grid span{color:#697164;font:800 clamp(.52rem,.68cqw,.68rem)/1 var(--mono);letter-spacing:.14em}
+.editorial-explainer-grid b{font-size:clamp(.9rem,1.45cqw,1.25rem);line-height:1.05;overflow-wrap:anywhere}
+.editorial-explainer-grid p{margin:0;font-size:clamp(.64rem,.9cqw,.82rem);line-height:1.7}
+.editorial-warranty-page{position:relative;display:grid!important;grid-template-rows:auto 1fr auto;gap:5cqw;padding:7cqw!important;border:1.2cqw double #183125;background:#eee9dc;color:#15271f}
+.warranty-kicker{font:800 clamp(.52rem,.75cqw,.72rem)/1 var(--mono);letter-spacing:.16em}
+.editorial-warranty-page>header{display:block;height:auto;padding:0 0 4cqw;border:0;border-bottom:1px solid #718076}
+.editorial-warranty-page>header p{margin:0 0 .7cqw;font:750 clamp(.62rem,.9cqw,.8rem)/1 var(--mono);letter-spacing:.2em}
+.editorial-warranty-page>header h3{margin:0;font:500 clamp(3rem,8.7cqw,6.2rem)/.82 Georgia,serif;letter-spacing:-.065em}
+.editorial-warranty-page>header span{display:block;max-width:34em;margin-top:2.2cqw;font:500 clamp(.66rem,1cqw,.86rem)/1.65 Georgia,serif}
+.warranty-seal{position:absolute;top:7cqw;right:7cqw;display:grid;width:13cqw;min-width:82px;aspect-ratio:1;place-content:center;border:3px double #8d3a2a;border-radius:50%;color:#8d3a2a;text-align:center;transform:rotate(8deg)}
+.warranty-seal span,.warranty-seal small{font:800 clamp(.45rem,.65cqw,.62rem)/1 var(--mono);letter-spacing:.12em}.warranty-seal b{font:800 clamp(.9rem,1.8cqw,1.45rem)/1 Georgia,serif}
+.warranty-fields{display:grid;align-content:center;margin:0}
+.warranty-fields div{display:grid;grid-template-columns:34% 1fr;align-items:end;gap:2cqw;padding:2.1cqw 0;border-bottom:1px solid #99a197}
+.warranty-fields dt{font:800 clamp(.5rem,.68cqw,.65rem)/1 var(--mono);letter-spacing:.14em}
+.warranty-fields dd{margin:0;font:600 clamp(.82rem,1.45cqw,1.2rem)/1.2 Georgia,serif;overflow-wrap:anywhere}
+.editorial-warranty-page>footer{display:flex;align-items:end;justify-content:space-between;gap:2cqw;padding-top:2cqw;border-top:3px double #718076}.editorial-warranty-page>footer span{font:800 clamp(.48rem,.65cqw,.62rem)/1 var(--mono);letter-spacing:.12em}.editorial-warranty-page>footer b{font:600 clamp(.75rem,1.3cqw,1.05rem)/1 Georgia,serif}
+.x-share-only .share-grid{grid-template-columns:minmax(0,1fr) minmax(260px,.55fr);align-items:center}
+.x-share-only .share-preview{justify-self:center;width:min(100%,520px);aspect-ratio:720/980}
+.x-share-action{display:grid;align-content:center;gap:1.2rem;padding:clamp(1.4rem,3vw,2.8rem);border-top:1px solid #475044;border-bottom:1px solid #475044}
+.x-share-action>span{color:var(--accent);font:800 .68rem/1 var(--mono);letter-spacing:.14em}
+.x-share-action p{margin:0;color:#b4bcae;line-height:1.7}
+.x-share-action .share-primary{margin:0}
+@media(max-width:800px){
+  .manual-chapter-rail{grid-template-columns:repeat(3,minmax(92px,1fr))}
+  .editorial-explainer-grid{grid-template-columns:1fr}
+  .editorial-explainer-grid section{padding:1rem}
+  .warranty-fields div{grid-template-columns:1fr;gap:.55rem}
+  .x-share-only .share-grid{grid-template-columns:1fr}
+}
 .hero .lede { max-width: 43em; margin-top: 18px; text-wrap: pretty; }
 .forge-steps {
   display: grid;
