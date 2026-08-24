@@ -4,7 +4,7 @@ Updated: 2026-08-24 (Asia/Tokyo)
 
 ## Objective and status
 - Objective: Finish the pedal directly on the real Three.js model, place the finish card/editor at the right of the forge stage, and rebuild the four-page editorial around a unified opening spread, one square photo, and a realistic package set.
-- Status: Implementation and production build complete. Sites source/version publication is the remaining action in this task.
+- Status: White-screen production incident diagnosed; corrected Sites client/server output is built and pending redeployment.
 
 ## Completed durable work
 - Added direct mark hit surfaces to the real Three.js pedal for front, back, left, and right surfaces.
@@ -25,13 +25,14 @@ Updated: 2026-08-24 (Asia/Tokyo)
 - src/App.tsx: DirectMarkSurface, PedalModel/Stage mark-edit props, right finish rail, simplified SignatureEditor, unified opening spread, square page 3, package page 4, WebP atlas URLs.
 - src/design-overrides.css: right-side finish/editor rail, responsive direct editor, opening spread, square photo, and package still-life styles.
 - vite.config.ts: Sites Vite plugin.
-- package.json / package-lock.json: Vite 8, @openai/sites-vite-plugin, sharp build tooling, and dual client/Worker production build.
+- package.json / package-lock.json: Vite 8, @openai/sites-vite-plugin, sharp build tooling, and dual dist/client + dist/server production build.
 - worker/index.js: Cloudflare Worker asset serving with HTML SPA fallback.
 - .openai/hosting.json: Sites project binding.
 - HANDOFF.md: current continuation state.
 
 ## Verification (2026-08-24)
-- npm run build: pass with Vite 8.2.2 after WebP conversion; client built in 1.04s and Worker server entry built in 163ms.
+- Root cause of production white screen: static Vite output was placed at dist root while Sites serves static assets from dist/client.
+- Corrected npm run build: pass with Vite 8.2.2; clean output contains dist/client/index.html, client assets, dist/server/index.js, and dist/.openai/hosting.json.
 - Output: main bundle 1,688.72 kB / 499.49 kB gzip.
 - Existing chunk-size warning remains; it did not fail the build.
 - No tests, typecheck, generation audit, or browser QA were run for this change, per the user's request.
@@ -52,6 +53,6 @@ Updated: 2026-08-24 (Asia/Tokyo)
 - Previous-task backup: C:\Users\lushl\AppData\Local\Temp\pedal-gacha-before-dropdown-stage-editorial-20260824
 
 ## Next actions
-1. First action: push the exact current source to the Sites source repository.
-2. Package the successful production build and save a Sites version tied to that source commit.
-3. Deploy that saved version privately to production and record the resulting URL/status.
+1. First action: visually review the private production URL when convenient, focusing on 3D direct-mark dragging and the four editorial pages.
+2. If wider access is desired, explicitly choose a new Sites access policy before changing it.
+3. Treat main-bundle code splitting as a separate future performance task.
