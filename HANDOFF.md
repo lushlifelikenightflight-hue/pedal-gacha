@@ -19,18 +19,19 @@ Updated: 2026-08-24 (Asia/Tokyo)
 - Rebuilt page 4 as a full-page package still life containing a three-dimensional box, pedal, booklet, and serial/warranty card.
 - Added Sites hosting configuration, Vite Sites plugin integration, and a Cloudflare Worker SPA fallback entry.
 - Removed two unreferenced legacy pedal-art atlas PNGs from the shipped public assets; originals are recoverable from the current-task backup.
+- Converted the two active pedal texture atlases from 5.49 MB of PNGs to 443 KB of high-quality WebP assets and updated Three.js texture URLs; originals remain recoverable from the backup.
 
 ## Changed files/components
-- src/App.tsx: DirectMarkSurface, PedalModel/Stage mark-edit props, right finish rail, simplified SignatureEditor, unified opening spread, square page 3, package page 4.
+- src/App.tsx: DirectMarkSurface, PedalModel/Stage mark-edit props, right finish rail, simplified SignatureEditor, unified opening spread, square page 3, package page 4, WebP atlas URLs.
 - src/design-overrides.css: right-side finish/editor rail, responsive direct editor, opening spread, square photo, and package still-life styles.
 - vite.config.ts: Sites Vite plugin.
-- package.json / package-lock.json: Vite 8, @openai/sites-vite-plugin, and dual client/Worker production build.
+- package.json / package-lock.json: Vite 8, @openai/sites-vite-plugin, sharp build tooling, and dual client/Worker production build.
 - worker/index.js: Cloudflare Worker asset serving with HTML SPA fallback.
 - .openai/hosting.json: Sites project binding.
 - HANDOFF.md: current continuation state.
 
 ## Verification (2026-08-24)
-- npm run build: pass with Vite 8.2.2 after asset cleanup; client built in 2.33s and Worker server entry built in 552ms.
+- npm run build: pass with Vite 8.2.2 after WebP conversion; client built in 1.04s and Worker server entry built in 163ms.
 - Output: main bundle 1,688.72 kB / 499.49 kB gzip.
 - Existing chunk-size warning remains; it did not fail the build.
 - No tests, typecheck, generation audit, or browser QA were run for this change, per the user's request.
