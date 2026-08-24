@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "typecheck": "tsc --noEmit",
-    "build": "vite build",
+    "build": "vite build && vite build --ssr worker/index.js --outDir dist/server",
     "audit:generation": "esbuild scripts/audit-generation.ts --bundle --platform=node --format=esm --packages=external --loader:.css=empty --outfile=.tmp/audit-generation.mjs && node .tmp/audit-generation.mjs",
     "preview": "vite preview"
   },
