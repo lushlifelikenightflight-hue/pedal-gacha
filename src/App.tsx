@@ -964,10 +964,14 @@ function ForgeMachine({ pedal, reduce }: { pedal: Pedal | null; reduce: boolean 
   </group>;
 }
 function CameraController({ enabled, home, resetToken, autoRotate }: { enabled: boolean; home: [number, number, number]; resetToken: number; autoRotate: boolean }) {
-  const { camera, gl } = useThree(); const controls = useMemo(() => new OrbitControls(camera, gl.domElement), [camera, gl.domElement]);
+  const { camera, gl, size } = useThree(); const controls = useMemo(() => new OrbitControls(camera, gl.domElement), [camera, gl.domElement]);
+  const fittedHome = useMemo<[number, number, number]>(() => {
+    const portraitScale = size.width < size.height ? 1.16 : 1;
+    return home.map(value => value * portraitScale) as [number, number, number];
+  }, [home, size.height, size.width]);
   useEffect(() => { controls.enableDamping = true; controls.dampingFactor = .08; controls.enablePan = false; controls.minPolarAngle = .08; controls.maxPolarAngle = Math.PI - .08; controls.touches.ONE = THREE.TOUCH.ROTATE; controls.touches.TWO = THREE.TOUCH.DOLLY_ROTATE; return () => controls.dispose(); }, [controls]);
-  useEffect(() => { controls.enabled = enabled; controls.autoRotate = enabled && autoRotate; controls.autoRotateSpeed = .75; controls.minDistance = Math.hypot(...home) * .5; controls.maxDistance = Math.hypot(...home) * 1.6; }, [controls, enabled, home, autoRotate]);
-  useEffect(() => { camera.position.set(...home); controls.target.set(0, 0, 0); controls.update(); }, [camera, controls, home, resetToken]);
+  useEffect(() => { controls.enabled = enabled; controls.autoRotate = enabled && autoRotate; controls.autoRotateSpeed = .75; controls.minDistance = Math.hypot(...fittedHome) * .5; controls.maxDistance = Math.hypot(...fittedHome) * 1.6; }, [controls, enabled, fittedHome, autoRotate]);
+  useEffect(() => { camera.position.set(...fittedHome); controls.target.set(0, 0, 0); controls.update(); }, [camera, controls, fittedHome, resetToken]);
   useFrame(() => controls.update()); return null;
 }
 function RenderSettings({ viewMode }: { viewMode: ViewMode }) {

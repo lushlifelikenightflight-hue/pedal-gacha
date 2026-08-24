@@ -2784,3 +2784,59 @@
 .stage-wrap.is-editing .stage-control-panel,.stage-wrap.is-editing .stage-label,.stage-wrap.is-editing .view-reset{display:none}
 .opening-info-card{position:relative;inset:auto!important;width:auto;aspect-ratio:auto}
 }
+
+/* MOBILE FIT — keep every workflow at device scale */
+@media (max-width: 600px) {
+  html, body, #root, main { width: 100%; max-width: 100%; overflow-x: clip; }
+  header { height: 56px; padding-inline: 14px; }
+  .brand { font-size: 16px; }
+  .collection-button { padding: 7px 9px; font-size: 9px; }
+  .hero { width: 100%; min-height: 0; }
+  .intro { padding: 32px 14px 48px; }
+  .hero h1 { font-size: clamp(2.65rem, 13.5vw, 3.45rem); line-height: .86; }
+  .hero-declaration { max-width: 19em; white-space: normal; font-size: clamp(1rem, 4.8vw, 1.18rem); line-height: 1.45; text-wrap: balance; }
+  .lede { margin: 18px 0 30px; font-size: .92rem; line-height: 1.7; }
+  .selection-location { grid-template-columns: 1fr; gap: .38rem; margin-bottom: 1rem; }
+  .selection-location span { font-size: .68rem; }
+  .selection-location b { font-size: 2rem; }
+  .selection-location small { grid-column: 1; font-size: .78rem; line-height: 1.5; }
+  .forge-select-grid { margin-bottom: 1rem; }
+  .forge-select-field, .forge-dropdown, .forge-dropdown summary { min-height: 5.2rem; }
+  .forge-select-field, .forge-dropdown summary { padding: .8rem .9rem; }
+  .forge-select-field select, .forge-dropdown summary b { font-size: .98rem; }
+  .forge-dropdown-panel { max-height: min(52dvh, 420px); overflow-y: auto; }
+  .forge-primary-cta { min-height: 64px; }
+  .forge-divider span { padding-block: 13px; font-size: 8px; }
+  .stage-wrap { width: 100%; height: min(68dvh, 560px); min-height: 430px; }
+  .stage-wrap > .workflow-location { top: .7rem; left: .75rem; gap: .45rem; }
+  .stage-wrap > .workflow-location span { font-size: .58rem; }
+  .stage-wrap > .workflow-location b { font-size: 1.45rem; }
+  .stage-label { display: none; }
+  .stage-control-panel { top: 3.8rem !important; right: .75rem; left: .75rem !important; width: auto; max-width: none; }
+  .mode-switch { min-width: 0; }
+  .mode-switch span, .mode-switch button { min-width: 0; padding-inline: .42rem; font-size: .55rem; }
+  .stage-caption { right: .75rem; bottom: .65rem; left: .75rem; font-size: .52rem; line-height: 1.4; }
+  .view-reset { display: none; }
+  .stage-wrap.has-finish-rail, .stage-wrap.has-finish-rail.is-editing { display: flow-root; height: auto; min-height: 0; padding-top: min(62dvh, 520px); }
+  .stage-wrap.has-finish-rail > .forge-canvas, .stage-wrap.has-finish-rail.is-editing > .forge-canvas { inset: 0 0 auto !important; width: 100% !important; height: min(62dvh, 520px) !important; min-height: 0; }
+  .stage-wrap.has-finish-rail .stage-caption { display: none; }
+  .stage-finish-card, .stage-editor-drawer { position: relative; inset: auto; width: auto; max-height: none; min-height: 0; margin: 0; overflow: visible; box-shadow: none; }
+  .stage-finish-card { padding: 1.25rem 1rem 1rem; }
+  .stage-finish-card h2 { margin: 1.4rem 0 .8rem; font-size: clamp(2.2rem, 11vw, 3.35rem); }
+  .stage-finish-card > button { min-height: 54px; margin-top: 1.4rem; }
+  .stage-editor-drawer .direct-3d-mark-controls { padding: 1rem; }
+  .direct-mark-settings { grid-template-columns: 1fr; }
+  .direct-mark-settings label:nth-child(n+4) { grid-column: 1; }
+  .finish-shipping-grid.shipping-only { width: 100%; padding-inline: 12px; }
+  .workflow-card { min-height: 0; padding: 1.25rem; }
+  .manual-viewer { width: 100%; padding-inline: 8px; }
+  .manual-chapter-rail { width: 100%; grid-template-columns: repeat(4, minmax(92px, 1fr)); }
+  .manual-spread.is-single { width: 100%; height: min(76dvh, 700px); min-height: 500px; }
+  .manual-page { min-height: 0; }
+  .mobile-hero-copy h2 { font-size: clamp(2.5rem, 15vw, 4.4rem); }
+  .mobile-facts-grid { grid-template-columns: 1fr; }
+  .mobile-facts-grid section { min-height: 5.7rem; padding: .8rem; }
+  .package-overlay-copy h3 { font-size: clamp(2.2rem, 13vw, 4rem); }
+  .share-panel, .share-panel.share-quiet-editorial { margin-top: 36px; padding: 24px 14px; }
+  .share-panel.share-quiet-editorial .share-hero-copy h2 { font-size: clamp(2.7rem, 14vw, 4.4rem); }
+}

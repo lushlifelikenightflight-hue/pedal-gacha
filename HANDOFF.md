@@ -1,10 +1,10 @@
 # HANDOFF
 
-Updated: 2026-08-24 (Asia/Tokyo)
+Updated: 2026-08-24 19:15 (Asia/Tokyo)
 
 ## Objective and status
 - Objective: Finish the pedal directly on the real Three.js model, place the finish card/editor at the right of the forge stage, and rebuild the four-page editorial around a unified opening spread, one square photo, and a realistic package set.
-- Status: White-screen production incident diagnosed; corrected Sites client/server output is built and pending redeployment.
+- Status: Mobile viewport-fit repair implemented and production build passed; deployment of the updated private version is in progress.
 
 ## Completed durable work
 - Added direct mark hit surfaces to the real Three.js pedal for front, back, left, and right surfaces.
@@ -20,10 +20,13 @@ Updated: 2026-08-24 (Asia/Tokyo)
 - Added Sites hosting configuration, Vite Sites plugin integration, and a Cloudflare Worker SPA fallback entry.
 - Removed two unreferenced legacy pedal-art atlas PNGs from the shipped public assets; originals are recoverable from the current-task backup.
 - Converted the two active pedal texture atlases from 5.49 MB of PNGs to 443 KB of high-quality WebP assets and updated Three.js texture URLs; originals remain recoverable from the backup.
+- Added a dedicated <=600px layout pass so the selection form, forge viewer, finish editor, and editorial pages fit the device width.
+- Removed the 1100/1120px mobile stage minimum heights; the real 3D canvas now stays compact above the finish/editor controls.
+- Added portrait-camera distance fitting so tall phone viewports frame the pedal instead of cropping it.
 
 ## Changed files/components
-- src/App.tsx: DirectMarkSurface, PedalModel/Stage mark-edit props, right finish rail, simplified SignatureEditor, unified opening spread, square page 3, package page 4, WebP atlas URLs.
-- src/design-overrides.css: right-side finish/editor rail, responsive direct editor, opening spread, square photo, and package still-life styles.
+- src/App.tsx: DirectMarkSurface, PedalModel/Stage mark-edit props, right finish rail, simplified SignatureEditor, unified opening spread, square page 3, package page 4, WebP atlas URLs, portrait camera fitting.
+- src/design-overrides.css: right-side finish/editor rail, responsive direct editor, opening spread, square photo, package still-life styles, and compact phone layout overrides.
 - vite.config.ts: Sites Vite plugin.
 - package.json / package-lock.json: Vite 8, @openai/sites-vite-plugin, sharp build tooling, and dual dist/client + dist/server production build.
 - worker/index.js: Cloudflare Worker asset serving with HTML SPA fallback.
@@ -35,6 +38,7 @@ Updated: 2026-08-24 (Asia/Tokyo)
 - Corrected npm run build: pass with Vite 8.2.2; clean output contains dist/client/index.html, client assets, dist/server/index.js, and dist/.openai/hosting.json.
 - Output: main bundle 1,688.72 kB / 499.49 kB gzip.
 - Existing chunk-size warning remains; it did not fail the build.
+- Mobile viewport-fit production build: pass; dist/client and dist/server were regenerated successfully.
 - No tests, typecheck, generation audit, or browser QA were run for this change, per the user's request.
 
 ## Active decisions and constraints
@@ -51,8 +55,9 @@ Updated: 2026-08-24 (Asia/Tokyo)
 ## Rollback
 - Current-task backup: C:\Users\lushl\AppData\Local\Temp\pedal-gacha-before-direct-3d-editorial-deploy-20260824
 - Previous-task backup: C:\Users\lushl\AppData\Local\Temp\pedal-gacha-before-dropdown-stage-editorial-20260824
+- Mobile-fix backup: C:\Users\lushl\AppData\Local\Temp\pedal-gacha-before-mobile-fit-20260824190757
 
 ## Next actions
-1. First action: visually review the private production URL when convenient, focusing on 3D direct-mark dragging and the four editorial pages.
+1. First action: finish publishing the mobile-fit version, then confirm it on a phone after a hard refresh.
 2. If wider access is desired, explicitly choose a new Sites access policy before changing it.
 3. Treat main-bundle code splitting as a separate future performance task.
