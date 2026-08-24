@@ -1,12 +1,20 @@
 # HANDOFF
 
-Updated: 2026-08-24 21:35 (Asia/Tokyo)
+Updated: 2026-08-25 00:10 (Asia/Tokyo)
 
 ## Objective and status
-- Objective: Update workflow copy, rebuild the editorial as three pages, reduce FINAL STEP to X sharing, and use editorial page 1 as the share image.
-- Status: Implementation and production build complete; Sites version 6 publish is pending.
+- Objective: Preserve full OrbitControls rotation on touch devices and clearly mark the 3D area as non-scrollable.
+- Status: Completed and published through GitHub Pages at https://lushlifelikenightflight-hue.github.io/pedal-gacha/. The GitHub repository is public at https://github.com/lushlifelikenightflight-hue/pedal-gacha.
 
 ## Completed durable work
+- Separated VIEW CONTROL / DRAG / AUTO from the BACKGROUND, PHOTO, and POWER option groups.
+- Added a persistent 360° VIEW / DRAG TO ROTATE header, thin inspection boundary, corner markers, and scroll-direction cue around the 3D canvas.
+- Added a temporary Japanese drag overlay on first result reveal and whenever the touch view or VIEW CONTROL is activated.
+- Preserved desktop OrbitControls mouse rotation and wheel zoom.
+- Restored the original one-finger OrbitControls rotation on touch devices, including horizontal and vertical orbit movement.
+- Restored `touch-action: none` on the 3D canvas so gestures remain dedicated to camera control.
+- Replaced the scroll cue with a persistent Japanese warning that the page cannot be scrolled inside the 3D area.
+- Increased the inspection boundary contrast with a stronger accent border, tinted overlay, and high-contrast warning band.
 - Broke the hero declaration after まだ存在しない、.
 - Changed the finish headline to デコってこ。 and the shipping headline to パッケージングしていこう。.
 - Rebuilt the editorial as three pages: product cover, small-type quick guide, and English warranty certificate.
@@ -38,28 +46,33 @@ Updated: 2026-08-24 21:35 (Asia/Tokyo)
 - Added portrait-camera distance fitting so tall phone viewports frame the pedal instead of cropping it.
 
 ## Changed files/components
-- src/App.tsx: workflow copy, three-page editorial, English warranty, and X-only page-1 sharing.
-- src/design-overrides.css: quick-guide, warranty, three-page navigation, and X-only FINAL STEP layouts.
+- src/App.tsx: original OrbitControls touch rotation, 360-degree hint copy, and non-scroll warning copy.
+- src/design-overrides.css: high-contrast non-scrollable inspection region, warning band, and `touch-action: none`.
+- vite.config.ts: uses `/pedal-gacha/` as the base path during GitHub Actions builds.
+- .github/workflows/deploy-pages.yml: typechecks, builds, uploads `dist/client`, and deploys GitHub Pages on `main`.
+- README.md: links to the GitHub Pages release.
 - vite.config.ts: Sites Vite plugin.
 - package.json / package-lock.json: Vite 8, @openai/sites-vite-plugin, sharp build tooling, and dual dist/client + dist/server production build.
 - worker/index.js: Cloudflare Worker asset serving with HTML SPA fallback.
 - .openai/hosting.json: Sites project binding.
 - HANDOFF.md: current continuation state.
 
-## Verification (2026-08-24)
+## Verification (2026-08-25)
+- Full-rotation restoration: `npm run typecheck` passed.
+- Full-rotation restoration: `GITHUB_ACTIONS=true npm run build` passed with Vite 8.2.2.
+- The existing main-chunk size warning remains non-fatal.
+
+## Previous verification (2026-08-24)
+- Current local 3D interaction revision: `npm run typecheck` passed.
+- Current local 3D interaction revision: `npm run build` passed with Vite 8.2.2; dist/client and dist/server were regenerated.
+- Current local build retains the existing main-chunk size warning; it did not fail the build.
+- Browser visual/touch QA was not run because it was not explicitly requested.
+- GitHub commit `8790d7d9585faec4018b02b3897232558141718f` pushed to `main`.
+- GitHub Actions run `32737775986` passed after enabling Pages with `build_type=workflow`.
+- Public URL returned HTTP 200 on 2026-08-24.
+- Sites version 6 deployment succeeded at https://pedal-forge-lab.lushlife-like-nightf.chatgpt.site.
+- Source commit deployed: f0805762597c1f3223eca35976680a084f0e8a8c.
 - TypeScript typecheck passed.
-- Production build passed with Vite 8.2.2; dist/client and dist/server were regenerated.
-- Browser QA and screenshots were not run because Sites existing-project rules prohibit browser testing unless explicitly requested.
-- Production build passed with Vite 8.2.2; dist/client and dist/server were regenerated.
-- Sites version 5 deployment succeeded at https://pedal-forge-lab.lushlife-like-nightf.chatgpt.site.
-- Source commit deployed: 2ab034e79292aa93f0444b26e9549117c70c804a.
-- No tests, typecheck, browser QA, screenshots, or visual/pointer checks were run, per the user's request.
-- Root cause of production white screen: static Vite output was placed at dist root while Sites serves static assets from dist/client.
-- Corrected npm run build: pass with Vite 8.2.2; clean output contains dist/client/index.html, client assets, dist/server/index.js, and dist/.openai/hosting.json.
-- Output: main bundle 1,688.72 kB / 499.49 kB gzip.
-- Existing chunk-size warning remains; it did not fail the build.
-- Mobile viewport-fit production build: pass; dist/client and dist/server were regenerated successfully.
-- No tests, typecheck, generation audit, or browser QA were run for this change, per the user's request.
 
 ## Active decisions and constraints
 - Attached text and screenshots are references; the current user request controls scope.
@@ -67,19 +80,22 @@ Updated: 2026-08-24 21:35 (Asia/Tokyo)
 - Desktop shows editorial pages 1-2 as a real two-page spread; mobile remains single-page.
 - Editorial page 3 is an English warranty certificate; there is no page 4.
 - FINAL STEP exposes only X sharing, and its image is editorial page 1.
-- The production Site is public; retain that access level unless the user explicitly requests a change.
+- GitHub Pages is the requested publication path. Do not deploy later changes to Sites unless the user explicitly asks for Sites again.
+- The GitHub repository and Pages site are public; retain that access level unless the user explicitly requests a change.
 
 ## Known issues
-- Browser visual/pointer verification was not run by request.
+- Browser visual/touch verification has not been run.
 - The main production chunk is large and remains a future performance optimization candidate.
 
 ## Rollback
+- GitHub commit `8790d7d` is the immediate rollback point before the full-rotation restoration.
+- Sites version 5 is the immediate production rollback target.
 - Sites version 4 is the immediate production rollback target.
 - Current-task backup: C:\Users\lushl\AppData\Local\Temp\pedal-gacha-before-direct-3d-editorial-deploy-20260824
 - Previous-task backup: C:\Users\lushl\AppData\Local\Temp\pedal-gacha-before-dropdown-stage-editorial-20260824
 - Mobile-fix backup: C:\Users\lushl\AppData\Local\Temp\pedal-gacha-before-mobile-fit-20260824190757
 
 ## Next actions
-1. First action: publish the successful build as Sites version 6.
-2. If QA is later requested, verify all three editorial pages and the X share flow at desktop and phone widths.
+1. First action: if QA is requested, verify full horizontal/vertical orbit rotation and the non-scroll warning at a touch-width viewport.
+2. For future releases, push `main` and monitor the Deploy GitHub Pages workflow.
 3. Treat main-bundle code splitting as a separate future performance task.

@@ -973,23 +973,18 @@ function ForgeMachine({ pedal, reduce }: { pedal: Pedal | null; reduce: boolean 
 }
 function CameraController({ enabled, home, resetToken, autoRotate, onInteract }: { enabled: boolean; home: [number, number, number]; resetToken: number; autoRotate: boolean; onInteract?: () => void }) {
   const { camera, gl, size } = useThree(); const controls = useMemo(() => new OrbitControls(camera, gl.domElement), [camera, gl.domElement]);
-  const [coarsePointer, setCoarsePointer] = useState(false);
   const fittedHome = useMemo<[number, number, number]>(() => {
     const portraitScale = size.width < size.height ? 1.16 : 1;
     return home.map(value => value * portraitScale) as [number, number, number];
   }, [home, size.height, size.width]);
-  useEffect(() => { const query = window.matchMedia('(pointer: coarse)'); const update = () => setCoarsePointer(query.matches); update(); query.addEventListener('change', update); return () => query.removeEventListener('change', update); }, []);
   useEffect(() => { controls.enableDamping = true; controls.dampingFactor = .08; controls.enablePan = false; controls.minPolarAngle = .08; controls.maxPolarAngle = Math.PI - .08; controls.touches.ONE = THREE.TOUCH.ROTATE; controls.touches.TWO = THREE.TOUCH.DOLLY_ROTATE; return () => controls.dispose(); }, [controls]);
-  useEffect(() => { controls.enabled = enabled && (!coarsePointer || autoRotate); controls.autoRotate = enabled && autoRotate; controls.autoRotateSpeed = .75; controls.minDistance = Math.hypot(...fittedHome) * .5; controls.maxDistance = Math.hypot(...fittedHome) * 1.6; gl.domElement.style.touchAction = coarsePointer ? 'pan-y' : 'none'; }, [controls, enabled, fittedHome, autoRotate, coarsePointer, gl.domElement]);
+  useEffect(() => { controls.enabled = enabled; controls.autoRotate = enabled && autoRotate; controls.autoRotateSpeed = .75; controls.minDistance = Math.hypot(...fittedHome) * .5; controls.maxDistance = Math.hypot(...fittedHome) * 1.6; gl.domElement.style.touchAction = 'none'; }, [controls, enabled, fittedHome, autoRotate, gl.domElement]);
   useEffect(() => {
-    if (!enabled || !coarsePointer || autoRotate) return;
-    const element = gl.domElement; let pointerId: number | null = null; let lastX = 0; let startX = 0; let startY = 0; let horizontal = false; let vertical = false;
-    const down = (event: PointerEvent) => { if (event.pointerType !== 'touch' || pointerId !== null) return; pointerId = event.pointerId; lastX = startX = event.clientX; startY = event.clientY; horizontal = false; vertical = false; onInteract?.(); };
-    const move = (event: PointerEvent) => { if (event.pointerId !== pointerId || vertical) return; const totalX = event.clientX - startX; const totalY = event.clientY - startY; if (!horizontal && Math.max(Math.abs(totalX), Math.abs(totalY)) > 7) { horizontal = Math.abs(totalX) > Math.abs(totalY) * 1.15; vertical = !horizontal; } if (!horizontal) return; if (event.cancelable) event.preventDefault(); const deltaX = event.clientX - lastX; lastX = event.clientX; const offset = camera.position.clone().sub(controls.target); const spherical = new THREE.Spherical().setFromVector3(offset); spherical.theta -= deltaX * .009; spherical.makeSafe(); camera.position.setFromSpherical(spherical).add(controls.target); camera.lookAt(controls.target); };
-    const up = (event: PointerEvent) => { if (event.pointerId === pointerId) pointerId = null; };
-    element.addEventListener('pointerdown', down); element.addEventListener('pointermove', move, { passive: false }); element.addEventListener('pointerup', up); element.addEventListener('pointercancel', up);
-    return () => { element.removeEventListener('pointerdown', down); element.removeEventListener('pointermove', move); element.removeEventListener('pointerup', up); element.removeEventListener('pointercancel', up); };
-  }, [autoRotate, camera, coarsePointer, controls, enabled, gl.domElement, onInteract]);
+    if (!enabled || !onInteract) return;
+    const element = gl.domElement; const down = () => onInteract();
+    element.addEventListener('pointerdown', down);
+    return () => element.removeEventListener('pointerdown', down);
+  }, [enabled, gl.domElement, onInteract]);
   useEffect(() => { camera.position.set(...fittedHome); controls.target.set(0, 0, 0); controls.update(); }, [camera, controls, fittedHome, resetToken]);
   useFrame(() => controls.update()); return null;
 }
@@ -1314,8 +1309,8 @@ export default function App() {
       {phase === 'result' && <div className={'inspection-frame' + (viewHintVisible ? ' is-hinting' : '')} aria-hidden="true">
         <div className="inspection-frame-head"><b>360° VIEW</b><span>↔ DRAG TO ROTATE</span></div>
         <i className="corner corner-nw" /><i className="corner corner-ne" /><i className="corner corner-sw" /><i className="corner corner-se" />
-        <div className="drag-hint">↔ <span>指でドラッグして回転</span></div>
-        <small>↓ SCROLL</small>
+        <div className="drag-hint">↔ <span>上下左右にドラッグして360°回転</span></div>
+        <small>このエリア内ではページスクロールできません</small>
       </div>}
       {phase === 'result' && <><div className="stage-control-panel">
         <div className="mode-switch" aria-label="背景"><span>BACKGROUND</span>{(['stage', 'white', 'dark'] as ViewMode[]).map(mode => <button key={mode} className={viewMode === mode ? 'active' : ''} onClick={() => { setViewMode(mode); setViewReset(v => v + 1); }}>{mode.toUpperCase()}</button>)}</div>
