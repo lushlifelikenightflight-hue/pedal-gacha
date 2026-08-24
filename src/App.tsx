@@ -56,12 +56,9 @@ type LedLocation = 'upper' | 'center' | 'none';
 type GraphicUsageMode = 'preserve' | 'transform' | 'auto';
 type GraphicPlacementMode = 'one-point' | 'sticker' | 'panel' | 'full' | 'auto';
 type GraphicTransformStyle = 'auto' | 'silkscreen' | 'risograph' | 'halftone' | 'poster' | 'sticker' | 'abstract';
+type UserGraphic = { fileName: string; mimeType: string; width: number; height: number; sourceUrl: string; textureUrl: string; usageMode: GraphicUsageMode; placementMode: GraphicPlacementMode; transformStyle: GraphicTransformStyle; transformStrength: 'low' | 'medium' | 'high'; colorBehavior: 'preserve' | 'pedal-match' | 'duotone' | 'monochrome'; variant: number; surface: MarkSurface; u: number; v: number; size: number; rotation: number };
 type MarkSurface = 'front' | 'left-side' | 'right-side' | 'back';
-type LocalPosition = { x: number; y: number };
-type PlacementBase = { id: string; surface: MarkSurface; localPosition: LocalPosition; rotation: number; scale: number; u?: number; v?: number; size?: number };
-type UserGraphic = PlacementBase & { type: 'sticker'; asset: string; fileName: string; mimeType: string; width: number; height: number; sourceUrl: string; textureUrl: string; usageMode: GraphicUsageMode; placementMode: GraphicPlacementMode; transformStyle: GraphicTransformStyle; transformStrength: 'low' | 'medium' | 'high'; colorBehavior: 'preserve' | 'pedal-match' | 'duotone' | 'monochrome'; variant: number };
-type PedalMark = PlacementBase & { type: 'signature'; enabled: boolean; text: string; font: 'gothic-jp' | 'mincho-jp' | 'maru-jp' | 'handwritten-jp' | 'mono' | 'stencil'; color: string; style: 'print' | 'stamp' | 'engraved' | 'etched' | 'paint-marker' | 'decal' | 'embossed' };
-type PedalFinish = { signatures: PedalMark[]; stickers: UserGraphic[] };
+type PedalMark = { enabled: boolean; text: string; surface: MarkSurface; u: number; v: number; size: number; rotation: number; font: 'gothic-jp' | 'mincho-jp' | 'maru-jp' | 'handwritten-jp' | 'mono' | 'stencil'; color: string; style: 'print' | 'stamp' | 'engraved' | 'etched' | 'paint-marker' | 'decal' | 'embossed' };
 type CustomGraphicMeta = { sourceName: string; treatment: string; placement: string; preservation: string };
 type Pedal = {
   id: string; seed: string; owner: string; instrument: Instrument; inputSources?: InputSource[]; signalProfile?: SignalProfile; ioChannels?: 'mono' | 'stereo'; effectType: EffectTypeChoice; sound: Choice; mood: Mood;
@@ -790,24 +787,18 @@ function resolvedGraphicPlacement(graphic: UserGraphic, knobCount: number): Excl
   if (knobCount <= 2) return graphic.usageMode === 'preserve' ? 'panel' : 'full';
   return graphic.usageMode === 'transform' ? 'panel' : 'one-point';
 }
-const placementPosition = (item: PlacementBase) => item.localPosition || { x: item.u ?? .5, y: item.v ?? .5 };
-const placementScale = (item: PlacementBase) => item.scale ?? item.size ?? .3;
-export const upsertSurfaceItem = <T extends PlacementBase>(items: T[], next: T) => [...items.filter(item => item.id !== next.id && item.surface !== next.surface), next];
-export function surfacePose(surface: MarkSurface, localPosition: LocalPosition, size: { width: number; height: number; depth: number }, lift: number) {
-  const base = surface === 'front' ? new THREE.Euler(-Math.PI / 2, 0, 0) : surface === 'back' ? new THREE.Euler(Math.PI / 2, 0, 0) : surface === 'left-side' ? new THREE.Euler(0, -Math.PI / 2, 0) : new THREE.Euler(0, Math.PI / 2, 0);
-  const u = THREE.MathUtils.clamp(localPosition.x, 0, 1); const v = THREE.MathUtils.clamp(localPosition.y, 0, 1);
-  const position: [number, number, number] = surface === 'front' ? [(u - .5) * size.width, size.depth / 2 + lift, (v - .5) * size.height] : surface === 'back' ? [(u - .5) * size.width, -size.depth / 2 - lift, (v - .5) * size.height] : surface === 'left-side' ? [-size.width / 2 - lift, (v - .5) * size.depth, (u - .5) * size.height] : [size.width / 2 + lift, (v - .5) * size.depth, -(u - .5) * size.height];
-  return { position, base };
-}
-export const surfaceQuaternion = (base: THREE.Euler, rotation: number) => new THREE.Quaternion().setFromEuler(base).multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), THREE.MathUtils.degToRad(rotation)));
-function StickerMark({ graphic, size }: { graphic: UserGraphic; size: { width: number; height: number; depth: number } }) {
+function StickerMark({ graphic, size, surfaceY }: { graphic: UserGraphic; size: { width: number; height: number; depth: number }; surfaceY: number }) {
   const texture = useMemo(() => { const result = new THREE.TextureLoader().load(graphic.textureUrl); result.colorSpace = THREE.SRGBColorSpace; result.anisotropy = 4; return result; }, [graphic.textureUrl]);
   useEffect(() => () => texture.dispose(), [texture]);
   const ratio = Math.max(.35, Math.min(2.85, graphic.width / graphic.height));
-  const scale = placementScale(graphic); const localPosition = placementPosition(graphic); const side = graphic.surface === 'left-side' || graphic.surface === 'right-side';
-  const width = (side ? size.height : size.width) * scale; const height = Math.min(side ? size.depth : size.height, width / ratio); const pose = surfacePose(graphic.surface, localPosition, size, .018);
+  const topWidth = size.width * graphic.size; const topHeight = Math.min(size.height, topWidth / ratio); const x = (graphic.u - .5) * size.width; const z = (graphic.v - .5) * size.height;
   const material = <meshBasicMaterial map={texture} transparent depthWrite={false} toneMapped={false} polygonOffset polygonOffsetFactor={-1} />;
-  return <mesh position={pose.position} quaternion={surfaceQuaternion(pose.base, graphic.rotation)} renderOrder={1}><planeGeometry args={[width, height]} />{material}</mesh>;
+  if (graphic.surface === 'back') return <mesh position={[x, -size.depth / 2 - .018, z]} rotation={[Math.PI / 2, 0, THREE.MathUtils.degToRad(graphic.rotation)]} renderOrder={1}><planeGeometry args={[topWidth, topHeight]} />{material}</mesh>;
+  if (graphic.surface === 'left-side' || graphic.surface === 'right-side') {
+    const right = graphic.surface === 'right-side'; const sideWidth = size.height * graphic.size; const sideHeight = Math.min(size.depth, sideWidth / ratio); const sideZ = (graphic.u - .5) * size.height; const sideY = (graphic.v - .5) * size.depth;
+    return <mesh position={[right ? size.width / 2 + .022 : -size.width / 2 - .022, sideY, sideZ]} rotation={[0, right ? Math.PI / 2 : -Math.PI / 2, THREE.MathUtils.degToRad(graphic.rotation)]} renderOrder={1}><planeGeometry args={[sideWidth, sideHeight]} />{material}</mesh>;
+  }
+  return <mesh position={[x, surfaceY + .012, z]} rotation={[-Math.PI / 2, 0, THREE.MathUtils.degToRad(graphic.rotation)]} renderOrder={1}><planeGeometry args={[topWidth, topHeight]} />{material}</mesh>;
 }
 const markFonts: Record<PedalMark['font'], string> = {
   'gothic-jp': '"Yu Gothic", "Hiragino Kaku Gothic ProN", sans-serif', 'mincho-jp': '"Yu Mincho", "Hiragino Mincho ProN", serif', 'maru-jp': '"Hiragino Maru Gothic ProN", "Yu Gothic", sans-serif',
@@ -821,11 +812,16 @@ function markTexture(mark: PedalMark) {
   if (mark.style === 'stamp') { ctx.globalCompositeOperation = 'destination-out'; const random = seeded(mark.text); for (let i = 0; i < 38; i++) ctx.fillRect(random() * 900 + 60, random() * 180 + 40, 8 + random() * 24, 2 + random() * 7); }
   const texture = new THREE.CanvasTexture(canvas); texture.colorSpace = THREE.SRGBColorSpace; texture.anisotropy = 4; return texture;
 }
-function SignatureMark({ mark, size }: { mark: PedalMark; size: { width: number; height: number; depth: number } }) {
+function SignatureMark({ mark, size, surfaceY }: { mark: PedalMark; size: { width: number; height: number; depth: number }; surfaceY: number }) {
   const texture = useMemo(() => markTexture(mark), [mark]); useEffect(() => () => texture.dispose(), [texture]); if (!mark.enabled || !mark.text.trim()) return null;
-  const side = mark.surface === 'left-side' || mark.surface === 'right-side'; const width = (side ? size.height : size.width) * placementScale(mark); const pose = surfacePose(mark.surface, placementPosition(mark), size, .024);
-  const material = <meshBasicMaterial map={texture} transparent depthWrite={false} toneMapped={false} polygonOffset polygonOffsetFactor={-1} />;
-  return <mesh position={pose.position} quaternion={surfaceQuaternion(pose.base, mark.rotation)} renderOrder={4}><planeGeometry args={[width, Math.max(side ? .11 : .14, width / 4.2)]} />{material}</mesh>;
+  const topWidth = size.width * mark.size; const sideWidth = size.height * mark.size; const x = (mark.u - .5) * size.width; const z = (mark.v - .5) * size.height;
+  const material = <meshBasicMaterial map={texture} transparent depthWrite={false} toneMapped={false} />;
+  if (mark.surface === 'back') return <mesh position={[x, -size.depth / 2 - .018, z]} rotation={[Math.PI / 2, 0, THREE.MathUtils.degToRad(mark.rotation)]} renderOrder={4}><planeGeometry args={[topWidth, Math.max(.14, topWidth / 4.2)]} />{material}</mesh>;
+  if (mark.surface === 'left-side' || mark.surface === 'right-side') {
+    const right = mark.surface === 'right-side'; const sideZ = (mark.u - .5) * size.height; const sideY = (mark.v - .5) * size.depth;
+    return <mesh position={[right ? size.width / 2 + .022 : -size.width / 2 - .022, sideY, sideZ]} rotation={[0, right ? Math.PI / 2 : -Math.PI / 2, THREE.MathUtils.degToRad(mark.rotation)]} renderOrder={4}><planeGeometry args={[sideWidth, Math.max(.11, sideWidth / 4.2)]} />{material}</mesh>;
+  }
+  return <mesh position={[x, surfaceY + .032, z]} rotation={[-Math.PI / 2, 0, THREE.MathUtils.degToRad(mark.rotation)]} renderOrder={4}><planeGeometry args={[topWidth, Math.max(.14, topWidth / 4.2)]} />{material}</mesh>;
 }
 function DirectMarkSurface({ mark, size, surfaceY, onChange }: { mark: PedalMark; size: { width: number; height: number; depth: number }; surfaceY: number; onChange: (mark: PedalMark) => void }) {
   const dragging = useRef<MarkSurface | null>(null);
@@ -833,7 +829,7 @@ function DirectMarkSurface({ mark, size, surfaceY, onChange }: { mark: PedalMark
     if (!event.uv) return;
     const u = THREE.MathUtils.clamp(event.uv.x, 0, 1);
     const v = THREE.MathUtils.clamp(invertV ? 1 - event.uv.y : event.uv.y, 0, 1);
-    onChange({ ...mark, enabled: true, surface, localPosition: { x: u, y: v }, u, v });
+    onChange({ ...mark, enabled: true, surface, u, v });
   };
   const handlers = (surface: MarkSurface, invertV = false) => ({
     onPointerDown: (event: ThreeEvent<PointerEvent>) => { event.stopPropagation(); dragging.current = surface; update(surface, event, invertV); },
@@ -843,15 +839,15 @@ function DirectMarkSurface({ mark, size, surfaceY, onChange }: { mark: PedalMark
   });
   const hitMaterial = <meshBasicMaterial color="#b7ff19" transparent opacity={.003} depthWrite={false} toneMapped={false} />;
   return <>
-    <mesh position={[0, size.depth / 2 + .038, 0]} rotation={[-Math.PI / 2, 0, 0]} renderOrder={8} {...handlers('front', true)}><planeGeometry args={[size.width, size.height]} />{hitMaterial}</mesh>
-    <mesh position={[0, -size.depth / 2 - .038, 0]} rotation={[Math.PI / 2, 0, 0]} renderOrder={8} {...handlers('back')}><planeGeometry args={[size.width, size.height]} />{hitMaterial}</mesh>
-    <mesh position={[-size.width / 2 - .038, 0, 0]} rotation={[0, -Math.PI / 2, 0]} renderOrder={8} {...handlers('left-side')}><planeGeometry args={[size.height, size.depth]} />{hitMaterial}</mesh>
-    <mesh position={[size.width / 2 + .038, 0, 0]} rotation={[0, Math.PI / 2, 0]} renderOrder={8} {...handlers('right-side')}><planeGeometry args={[size.height, size.depth]} />{hitMaterial}</mesh>
+    <mesh position={[0, surfaceY + .07, 0]} rotation={[-Math.PI / 2, 0, 0]} renderOrder={8} {...handlers('front', true)}><planeGeometry args={[size.width, size.height]} />{hitMaterial}</mesh>
+    <mesh position={[0, -size.depth / 2 - .045, 0]} rotation={[Math.PI / 2, 0, 0]} renderOrder={8} {...handlers('back')}><planeGeometry args={[size.width, size.height]} />{hitMaterial}</mesh>
+    <mesh position={[-size.width / 2 - .045, 0, 0]} rotation={[0, -Math.PI / 2, 0]} renderOrder={8} {...handlers('left-side')}><planeGeometry args={[size.height, size.depth]} />{hitMaterial}</mesh>
+    <mesh position={[size.width / 2 + .045, 0, 0]} rotation={[0, Math.PI / 2, 0]} renderOrder={8} {...handlers('right-side')}><planeGeometry args={[size.height, size.depth]} />{hitMaterial}</mesh>
   </>;
 }
 function DirectStickerSurface({ graphic, size, surfaceY, onChange }: { graphic: UserGraphic; size: { width: number; height: number; depth: number }; surfaceY: number; onChange: (graphic: UserGraphic) => void }) {
-  const mark: PedalMark = { ...defaultMark, id: graphic.id, enabled: true, surface: graphic.surface, localPosition: placementPosition(graphic) };
-  return <DirectMarkSurface mark={mark} size={size} surfaceY={surfaceY} onChange={next => onChange({ ...graphic, surface: next.surface, localPosition: next.localPosition, u: next.localPosition.x, v: next.localPosition.y })} />;
+  const mark: PedalMark = { ...defaultMark, enabled: true, surface: graphic.surface, u: graphic.u, v: graphic.v };
+  return <DirectMarkSurface mark={mark} size={size} surfaceY={surfaceY} onChange={next => onChange({ ...graphic, surface: next.surface, u: next.u, v: next.v })} />;
 }
 function BackPanel({ size }: { size: { width: number; height: number; depth: number } }) {
   return <group position={[0, -size.depth / 2 - .025, 0]}>
@@ -861,7 +857,7 @@ function BackPanel({ size }: { size: { width: number; height: number; depth: num
   </group>;
 }
 
-function PedalModel({ pedal, runtimeMode = 'play', userGraphics = [], marks = [], activeMark, activeGraphic, directMarkEditing = false, finishTool = 'signature', onMarkChange, onGraphicChange }: { pedal: Pedal; runtimeMode?: RuntimeMode; userGraphics?: UserGraphic[]; marks?: PedalMark[]; activeMark?: PedalMark; activeGraphic?: UserGraphic | null; directMarkEditing?: boolean; finishTool?: 'signature' | 'sticker'; onMarkChange?: (mark: PedalMark) => void; onGraphicChange?: (graphic: UserGraphic) => void }) {
+function PedalModel({ pedal, runtimeMode = 'play', userGraphic, mark, inspectSurface = 'front', directMarkEditing = false, finishTool = 'signature', onMarkChange, onGraphicChange }: { pedal: Pedal; runtimeMode?: RuntimeMode; userGraphic?: UserGraphic | null; mark?: PedalMark; inspectSurface?: MarkSurface; directMarkEditing?: boolean; finishTool?: 'signature' | 'sticker'; onMarkChange?: (mark: PedalMark) => void; onGraphicChange?: (graphic: UserGraphic) => void }) {
   const isBrokenSignal = pedal.name.replace(' // LIMITED', '') === 'BROKEN SIGNAL';
   const controls = isBrokenSignal ? ['CLEAN', 'BLEND', 'GAIN', 'LEVEL', 'BASS', 'MID', 'TREBLE', 'PRESENCE'] : pedal.knobs;
   const eqSliders = isBrokenSignal ? [] : pedal.eqSliders || [];
@@ -897,14 +893,15 @@ function PedalModel({ pedal, runtimeMode = 'play', userGraphics = [], marks = []
   };
   const finishMaterial = finish[materialStyle];
   const usesFullArtwork = graphicMode === 'FULL ILLUSTRATION' && artCoverage === 'full'; const artSize: [number, number] = [size.width * .94, size.height * .94]; const indicatorClearance = Math.max(ledLocation === 'upper' ? .5 : .44, size.height * .14); const indicatorZ = hybridLayout?.indicatorZ ?? (largePaddle ? -size.height * .02 : switchZ - indicatorClearance); const showTopScrews = hardwareCulture === 'LAB UTILITY' || condition === 'DIY MODIFIED';
-  return <group rotation={[0, -.08, 0]}><group>
+  const inspectionRotation: [number, number, number] = inspectSurface === 'back' ? [Math.PI, 0, 0] : inspectSurface === 'left-side' ? [0, 0, -Math.PI / 2] : inspectSurface === 'right-side' ? [0, 0, Math.PI / 2] : [0, 0, 0];
+  return <group rotation={[0, -.08, 0]}><group rotation={inspectionRotation}>
     <mesh geometry={geometry} castShadow receiveShadow><meshPhysicalMaterial color={pedal.palette[1]} metalness={finishMaterial.metalness} roughness={finishMaterial.roughness} clearcoat={finishMaterial.clearcoat} clearcoatRoughness={finishMaterial.clearcoatRoughness} iridescence={finishMaterial.iridescence || 0} iridescenceIOR={1.5} iridescenceThicknessRange={[180, 620]} envMapIntensity={['brushed', 'anodized', 'iridescent', 'holographic'].includes(materialStyle) ? 1.15 : .58} /></mesh>
     <BackPanel size={size} />
     {showTopScrews && ([[-.43, -.43], [.43, .43]] as [number, number][]).map(([x, z], i) => <ChassisScrew key={i} position={[x * size.width, surfaceY + .018, z * size.height]} />)}
     {resolvedEnclosure === 'digital' && <mesh position={[0, surfaceY - .055, .18]} rotation={[-Math.PI / 2, 0, 0]}><boxGeometry args={[size.width * .94, size.height * .5, .11]} /><meshStandardMaterial color={pedal.palette[1]} metalness={finishMaterial.metalness} roughness={finishMaterial.roughness} /></mesh>}
     {usesFullArtwork && <mesh position={[0, surfaceY - .028, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow><planeGeometry args={artSize} /><meshStandardMaterial map={texture} color={pedal.variant ? '#f2eadf' : '#ffffff'} metalness={finishMaterial.metalness * .55} roughness={Math.max(.48, finishMaterial.roughness)} polygonOffset polygonOffsetFactor={-2} /></mesh>}
-    {userGraphics.filter(graphic => graphic.textureUrl).map(graphic => <StickerMark key={graphic.id} graphic={graphic} size={size} />)}
-    {pedal.visualIntensity === 'maximal' && !userGraphics.some(graphic => graphic.textureUrl) && <MaximalArtwork pedal={pedal} size={size} surfaceY={surfaceY} />}
+    {userGraphic?.textureUrl && <StickerMark graphic={userGraphic} size={size} surfaceY={surfaceY} />}
+    {pedal.visualIntensity === 'maximal' && !userGraphic?.textureUrl && <MaximalArtwork pedal={pedal} size={size} surfaceY={surfaceY} />}
     {hardwareCulture === 'LAB UTILITY' && <XlrPort position={[size.width / 2 + .05, 0, size.height * .18]} />}
     {controls.length >= 5 && groupRows.map(({ group, row }) => <ControlGroupFrame key={group.name} group={group} row={row} style={pedal.controlGroupFrameStyle || 'thin-line'} radius={knobRadius} surfaceY={labelSurfaceY - .018} color={graphicColor} backgroundColor={pedal.palette[1]} />)}
     {!!eqSliders.length && hybridLayout && <SliderEqGroup sliders={eqSliders} surfaceY={surfaceY} color={graphicColor} layout={hybridLayout.eqPanel} />}
@@ -942,9 +939,9 @@ function PedalModel({ pedal, runtimeMode = 'play', userGraphics = [], marks = []
     {jackLayout === 'sides' && !tinyEnclosure && <><SurfaceText text="OUTPUT" position={[-size.width * .37, surfaceY, -.16]} width={.56} font={utilityFont} outline={false} /><SurfaceText text="INPUT" position={[size.width * .37, surfaceY, -.16]} width={.5} font={utilityFont} outline={false} /></>}
     {ioChannels === 'mono' && jackLayout === 'hybrid' && <><SurfaceText text="OUTPUT" position={[-size.width * .37, surfaceY, -.16]} width={.56} /><SurfaceText text="INPUT" position={[size.width * .27, surfaceY, -size.height * .37]} width={.5} /></>}
     {!tinyEnclosure && <SurfaceText text="DC IN" position={[powerPlacement === 'right-near-input' ? size.width * .37 : powerPlacement === 'top-offset' ? size.width * .14 : 0, surfaceY, powerPlacement === 'right-near-input' ? .4 : -size.height * .41]} width={.42} color={graphicColor} font={utilityFont} outline={false} />}
-    {directMarkEditing && finishTool === 'signature' && activeMark && onMarkChange && <DirectMarkSurface mark={activeMark} size={size} surfaceY={surfaceY} onChange={onMarkChange} />}
-    {directMarkEditing && finishTool === 'sticker' && activeGraphic && onGraphicChange && <DirectStickerSurface graphic={activeGraphic} size={size} surfaceY={surfaceY} onChange={onGraphicChange} />}
-    {marks.map(mark => <SignatureMark key={mark.id} mark={mark} size={size} />)}
+    {directMarkEditing && finishTool === 'signature' && mark && onMarkChange && <DirectMarkSurface mark={mark} size={size} surfaceY={surfaceY} onChange={onMarkChange} />}
+    {directMarkEditing && finishTool === 'sticker' && userGraphic && onGraphicChange && <DirectStickerSurface graphic={userGraphic} size={size} surfaceY={surfaceY} onChange={onGraphicChange} />}
+    {mark && <SignatureMark mark={mark} size={size} surfaceY={surfaceY} />}
   </group></group>;
 }
 function ForgeSigil({ color, reveal, reduce }: { color: string; reveal: boolean; reduce: boolean }) {
@@ -956,13 +953,13 @@ function ForgeSigil({ color, reveal, reduce }: { color: string; reveal: boolean;
     <group ref={pulse}><mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, .025, 0]}><ringGeometry args={[.34, .78, 6]} /><meshBasicMaterial color={color} transparent opacity={reveal ? .52 : .3} blending={THREE.AdditiveBlending} toneMapped={false} depthWrite={false} side={THREE.DoubleSide} /></mesh><mesh position={[0, 1.5, 0]}><cylinderGeometry args={[reveal ? .74 : .34, .22, 3.8, 32, 1, true]} /><meshBasicMaterial color={color} transparent opacity={reveal ? .18 : .08} blending={THREE.AdditiveBlending} toneMapped={false} depthWrite={false} side={THREE.DoubleSide} /></mesh></group>
   </group>;
 }
-function RevealSequence({ pedal, reduce, userGraphics = [] }: { pedal: Pedal; reduce: boolean; userGraphics?: UserGraphic[] }) {
+function RevealSequence({ pedal, reduce, userGraphic }: { pedal: Pedal; reduce: boolean; userGraphic?: UserGraphic | null }) {
   const prize = useRef<THREE.Group>(null!); const particles = useRef<THREE.Group>(null!); const elapsed = useRef(0);
   useFrame((_, delta) => { elapsed.current += delta; const progress = reduce ? 1 : Math.min(1, elapsed.current / 1.55); const emerge = 1 - Math.pow(1 - progress, 3); prize.current.scale.setScalar(.12 + emerge * .88); prize.current.position.y = -.9 + emerge * 1.15; if (!reduce) particles.current.rotation.y += delta * .9; particles.current.scale.setScalar(.35 + emerge * 1.5); });
   return <group position={[0, .1, 0]}>
     <ForgeSigil color={pedal.palette[0]} reveal reduce={reduce} />
     <group ref={particles}>{Array.from({ length: 28 }, (_, i) => { const angle = i / 28 * Math.PI * 2; const radius = .56 + i % 5 * .25; return <mesh key={i} position={[Math.cos(angle) * radius, -.42 + i % 7 * .27, Math.sin(angle) * radius]}><sphereGeometry args={[.018 + i % 3 * .009, 7, 5]} /><meshBasicMaterial color={i % 4 ? pedal.palette[0] : '#ffffff'} transparent opacity={.76} blending={THREE.AdditiveBlending} toneMapped={false} depthWrite={false} /></mesh>; })}</group>
-    <group ref={prize} scale={.12}><PedalModel pedal={pedal} runtimeMode="off" userGraphics={userGraphics} /></group>
+    <group ref={prize} scale={.12}><PedalModel pedal={pedal} runtimeMode="off" userGraphic={userGraphic} /></group>
   </group>;
 }
 function ForgeMachine({ pedal, reduce }: { pedal: Pedal | null; reduce: boolean }) {
@@ -1007,7 +1004,7 @@ function EmptyStage({ viewMode }: { viewMode: ViewMode }) {
     <mesh position={[0, .12, 0]} rotation={[Math.PI / 2, 0, 0]}><torusGeometry args={[1.35, .018, 8, 64]} /><meshBasicMaterial color={viewMode === 'studio' ? '#808780' : '#6f845d'} transparent opacity={.4} /></mesh>
   </group>;
 }
-function Stage({ pedal, phase, canvasRef, reduce, resetToken, viewMode, runtimeMode, userGraphics = [], marks = [], activeMark, activeGraphic, autoRotate, directMarkEditing = false, finishTool = 'signature', onMarkChange, onGraphicChange, onViewInteract }: { pedal: Pedal | null; phase: GachaState; canvasRef: React.MutableRefObject<HTMLCanvasElement | null>; reduce: boolean; resetToken: number; viewMode: ViewMode; runtimeMode: RuntimeMode; userGraphics?: UserGraphic[]; marks?: PedalMark[]; activeMark?: PedalMark; activeGraphic?: UserGraphic | null; autoRotate: boolean; directMarkEditing?: boolean; finishTool?: 'signature' | 'sticker'; onMarkChange?: (mark: PedalMark) => void; onGraphicChange?: (graphic: UserGraphic) => void; onViewInteract?: () => void }) {
+function Stage({ pedal, phase, canvasRef, reduce, resetToken, viewMode, runtimeMode, userGraphic, mark, inspectSurface, autoRotate, directMarkEditing = false, finishTool = 'signature', onMarkChange, onGraphicChange, onViewInteract }: { pedal: Pedal | null; phase: GachaState; canvasRef: React.MutableRefObject<HTMLCanvasElement | null>; reduce: boolean; resetToken: number; viewMode: ViewMode; runtimeMode: RuntimeMode; userGraphic?: UserGraphic | null; mark?: PedalMark; inspectSurface: MarkSurface; autoRotate: boolean; directMarkEditing?: boolean; finishTool?: 'signature' | 'sticker'; onMarkChange?: (mark: PedalMark) => void; onGraphicChange?: (graphic: UserGraphic) => void; onViewInteract?: () => void }) {
   const topView = phase === 'revealing' || phase === 'result';
   const floorless = viewMode === 'white' || viewMode === 'dark';
   const extent = pedal ? Math.max(enclosureDimensions[pedal.enclosure].width, enclosureDimensions[pedal.enclosure].height) : 4; const distance = extent * 1.42;
@@ -1016,7 +1013,7 @@ function Stage({ pedal, phase, canvasRef, reduce, resetToken, viewMode, runtimeM
   const floorY = topView ? -.62 : -2.2;
   return <Canvas className="forge-canvas" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} shadows dpr={[1, 1.5]} gl={{ preserveDrawingBuffer: true, antialias: true }} onCreated={({ gl, camera }) => { canvasRef.current = gl.domElement; camera.lookAt(0, 0, 0); }} fallback={<div className="canvas-fallback">3D PREVIEW UNAVAILABLE</div>} camera={{ position: home, fov: viewMode === 'hero' ? 34 : topView ? 36 : 38 }}>
     <RenderSettings viewMode={viewMode} />
-    <CameraController enabled={phase === 'result'} home={home} resetToken={resetToken} autoRotate={autoRotate} onInteract={onViewInteract} />
+    <CameraController enabled={phase === 'result' && !directMarkEditing} home={home} resetToken={resetToken} autoRotate={autoRotate} onInteract={onViewInteract} />
     <color attach="background" args={[background]} />
     <hemisphereLight color={viewMode === 'white' ? '#ffffff' : viewMode === 'studio' ? '#ffffff' : '#dce7df'} groundColor={viewMode === 'white' ? '#e4e5df' : viewMode === 'studio' ? '#d8d8d3' : '#171c18'} intensity={viewMode === 'white' ? 1.65 : viewMode === 'studio' ? 1.5 : .72} />
     <ambientLight intensity={viewMode === 'white' ? .52 : viewMode === 'dark' ? .12 : viewMode === 'studio' ? .42 : .18} />
@@ -1027,46 +1024,44 @@ function Stage({ pedal, phase, canvasRef, reduce, resetToken, viewMode, runtimeM
     {pedal && runtimeMode !== 'off' && <pointLight position={[0, 2.4, 1.4]} color={pedal.palette[0]} intensity={runtimeMode === 'play' ? .62 : .35} distance={5} />}
     {!floorless && <mesh position={[0, floorY, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow><planeGeometry args={[20, 20]} />{viewMode === 'studio' ? <meshStandardMaterial color="#f4f4f1" roughness={.82} metalness={0} /> : <meshPhysicalMaterial color={viewMode === 'hero' ? background : '#151b18'} roughness={viewMode === 'hero' ? .4 : .3} metalness={.04} clearcoat={.68} clearcoatRoughness={.22} />}</mesh>}
     {!floorless && topView && phase === 'result' && <ContactDisc viewMode={viewMode} />}
-    {phase === 'idle' ? <EmptyStage viewMode={viewMode} /> : phase === 'result' && pedal ? <PedalModel pedal={pedal} runtimeMode={runtimeMode} userGraphics={userGraphics} marks={marks} activeMark={activeMark} activeGraphic={activeGraphic} directMarkEditing={directMarkEditing} finishTool={finishTool} onMarkChange={onMarkChange} onGraphicChange={onGraphicChange} /> : phase === 'revealing' && pedal ? <RevealSequence pedal={pedal} reduce={reduce} userGraphics={userGraphics} /> : <ForgeMachine pedal={pedal} reduce={reduce} />}
+    {phase === 'idle' ? <EmptyStage viewMode={viewMode} /> : phase === 'result' && pedal ? <PedalModel pedal={pedal} runtimeMode={runtimeMode} userGraphic={userGraphic} mark={mark} inspectSurface={inspectSurface} directMarkEditing={directMarkEditing} finishTool={finishTool} onMarkChange={onMarkChange} onGraphicChange={onGraphicChange} /> : phase === 'revealing' && pedal ? <RevealSequence pedal={pedal} reduce={reduce} userGraphic={userGraphic} /> : <ForgeMachine pedal={pedal} reduce={reduce} />}
   </Canvas>;
 }
 
-const placementId = (type: 'signature' | 'sticker', surface: MarkSurface) => `${type}-${surface}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
-const createDefaultMark = (surface: MarkSurface = 'front'): PedalMark => ({ id: placementId('signature', surface), type: 'signature', enabled: false, text: '', surface, localPosition: { x: .5, y: .5 }, scale: .24, rotation: -5, font: 'gothic-jp', color: '#f4f1e8', style: 'print' });
-const defaultMark: PedalMark = createDefaultMark();
-function FinishEditor({ mark, graphic, surface, error, tool, open, onTool, onClose, onMarkChange, onMarkRemove, onGraphicFile, onGraphicChange, onGraphicRemove, onInspect }: { mark: PedalMark; graphic: UserGraphic | null; surface: MarkSurface; error: string; tool: 'signature' | 'sticker'; open: boolean; onTool: (tool: 'signature' | 'sticker') => void; onClose: () => void; onMarkChange: (mark: PedalMark) => void; onMarkRemove: () => void; onGraphicFile: (file: File) => void; onGraphicChange: (patch: Partial<UserGraphic>) => void; onGraphicRemove: () => void; onInspect: (surface: MarkSurface) => void }) {
+const defaultMark: PedalMark = { enabled: false, text: '', surface: 'front', u: .76, v: .52, size: .24, rotation: -5, font: 'gothic-jp', color: '#f4f1e8', style: 'print' };
+function FinishEditor({ mark, graphic, error, tool, open, onTool, onClose, onMarkChange, onMarkRemove, onGraphicFile, onGraphicChange, onGraphicRemove, onInspect }: { mark: PedalMark; graphic: UserGraphic | null; error: string; tool: 'signature' | 'sticker'; open: boolean; onTool: (tool: 'signature' | 'sticker') => void; onClose: () => void; onMarkChange: (mark: PedalMark) => void; onMarkRemove: () => void; onGraphicFile: (file: File) => void; onGraphicChange: (patch: Partial<UserGraphic>) => void; onGraphicRemove: () => void; onInspect: (surface: MarkSurface) => void }) {
   if (!open) return null;
   const fontOptions: [PedalMark['font'], string][] = [['gothic-jp', 'ゴシック'], ['mincho-jp', '明朝'], ['maru-jp', '丸ゴ'], ['handwritten-jp', '手書き'], ['mono', 'MONO'], ['stencil', 'STENCIL']];
   const styleOptions: [PedalMark['style'], string][] = [['print', '印刷'], ['stamp', 'スタンプ'], ['engraved', '刻印'], ['etched', 'エッチング'], ['paint-marker', 'マーカー'], ['decal', 'デカール'], ['embossed', 'エンボス']];
-  const surfaceOptions: [MarkSurface, string][] = [['front', 'FRONT'], ['left-side', 'LEFT'], ['right-side', 'RIGHT'], ['back', 'BACK']];
+  const surfaceOptions: [MarkSurface, string][] = [['front', '上'], ['left-side', '左'], ['right-side', '右'], ['back', '裏']];
   const fileInput = <input type="file" accept="image/png,image/jpeg,image/webp" onChange={event => { const file = event.target.files?.[0]; if (file) onGraphicFile(file); event.currentTarget.value = ''; }} />;
   return <section className="signature-editor direct-3d-mark-controls">
     <header><div><p className="eyebrow">03 / FINISH</p><h2>署名・ステッカー</h2></div><button onClick={onClose} aria-label="最終加工を閉じる">×</button></header>
-    <nav className="finish-tool-tabs" aria-label="編集する加工"><button type="button" className={tool === 'signature' ? 'active' : ''} onClick={() => { onTool('signature'); onInspect(surface); }}>署名</button><button type="button" className={tool === 'sticker' ? 'active' : ''} onClick={() => { onTool('sticker'); onInspect(surface); }}>ステッカー</button></nav>
+    <nav className="finish-tool-tabs" aria-label="編集する加工"><button type="button" className={tool === 'signature' ? 'active' : ''} onClick={() => { onTool('signature'); onInspect(mark.surface); }}>署名</button><button type="button" className={tool === 'sticker' ? 'active' : ''} onClick={() => { onTool('sticker'); onInspect(graphic?.surface || 'front'); }}>ステッカー</button></nav>
     {tool === 'signature' ? <>
       <label className="direct-mark-text">TEXT<input value={mark.text} maxLength={32} onChange={event => onMarkChange({ ...mark, enabled: true, text: event.target.value })} placeholder="文字を入力" /></label>
-      <nav className="direct-mark-view-tabs" aria-label="署名を配置する面">{surfaceOptions.map(([nextSurface, label]) => <button type="button" key={nextSurface} className={surface === nextSurface ? 'active' : ''} onClick={() => onInspect(nextSurface)}>{label}</button>)}</nav>
+      <nav className="direct-mark-view-tabs" aria-label="署名を配置する面">{surfaceOptions.map(([surface, label]) => <button type="button" key={surface} className={mark.surface === surface ? 'active' : ''} onClick={() => { onMarkChange({ ...mark, surface }); onInspect(surface); }}>{label}</button>)}</nav>
       <div className="direct-mark-settings">
         <label>FONT<select value={mark.font} onChange={event => onMarkChange({ ...mark, font: event.target.value as PedalMark['font'] })}>{fontOptions.map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></label>
         <label>STYLE<select value={mark.style} onChange={event => onMarkChange({ ...mark, style: event.target.value as PedalMark['style'] })}>{styleOptions.map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></label>
         <label>COLOR<input type="color" value={mark.color} onChange={event => onMarkChange({ ...mark, color: event.target.value })} /></label>
-        <label>SIZE <output>{Math.round(mark.scale * 100)}%</output><input type="range" min=".12" max="1" step=".01" value={mark.scale} onChange={event => onMarkChange({ ...mark, scale: Number(event.target.value) })} /></label>
+        <label>SIZE <output>{Math.round(mark.size * 100)}%</output><input type="range" min=".12" max="1" step=".01" value={mark.size} onChange={event => onMarkChange({ ...mark, size: Number(event.target.value) })} /></label>
         <label>ROTATE <output>{mark.rotation}°</output><input type="range" min="-180" max="180" step="1" value={mark.rotation} onChange={event => onMarkChange({ ...mark, rotation: Number(event.target.value) })} /></label>
       </div>
-      <p className="direct-mark-status">背景ドラッグで回転 · 筐体面をクリック / ドラッグして配置</p>
-      <div className="signature-actions"><button disabled={!mark.text.trim()} onClick={() => { onMarkChange({ ...mark, enabled: true }); onClose(); }}>確定</button><button className="outline" onClick={onMarkRemove}>この面の署名を削除</button></div>
+      <p className="direct-mark-status">全面配置可 · 部品の下にも配置できます</p>
+      <div className="signature-actions"><button disabled={!mark.text.trim()} onClick={() => { onMarkChange({ ...mark, enabled: true }); onClose(); }}>確定</button><button className="outline" onClick={onMarkRemove}>署名しない</button></div>
     </> : <>
-      <nav className="direct-mark-view-tabs" aria-label="ステッカーを配置する面">{surfaceOptions.map(([nextSurface, label]) => <button type="button" key={nextSurface} className={surface === nextSurface ? 'active' : ''} onClick={() => onInspect(nextSurface)}>{label}</button>)}</nav>
       {!graphic ? <label className="graphic-drop sticker-drop">{fileInput}<strong>＋ ステッカー画像を選択</strong><span>PNG / JPG / WEBP · 最大15MB</span></label> : <>
         <div className="sticker-file"><img src={graphic.textureUrl || graphic.sourceUrl} alt="選択したステッカー" /><div><b>{graphic.fileName}</b><span>{graphic.width} × {graphic.height}</span></div><label className="change-graphic">画像を変更{fileInput}</label></div>
+        <nav className="direct-mark-view-tabs" aria-label="ステッカーを配置する面">{surfaceOptions.map(([surface, label]) => <button type="button" key={surface} className={graphic.surface === surface ? 'active' : ''} onClick={() => { onGraphicChange({ surface }); onInspect(surface); }}>{label}</button>)}</nav>
         <div className="direct-mark-settings sticker-settings">
-          <label>SIZE <output>{Math.round(graphic.scale * 100)}%</output><input type="range" min=".12" max="1" step=".01" value={graphic.scale} onChange={event => onGraphicChange({ scale: Number(event.target.value) })} /></label>
+          <label>SIZE <output>{Math.round(graphic.size * 100)}%</output><input type="range" min=".12" max="1" step=".01" value={graphic.size} onChange={event => onGraphicChange({ size: Number(event.target.value) })} /></label>
           <label>ROTATE <output>{graphic.rotation}°</output><input type="range" min="-180" max="180" step="1" value={graphic.rotation} onChange={event => onGraphicChange({ rotation: Number(event.target.value) })} /></label>
         </div>
       </>}
       {error && <p className="graphic-error" role="alert">{error}</p>}
-      <p className="direct-mark-status">背景ドラッグで回転 · 筐体面をクリック / ドラッグして配置</p>
-      <div className="signature-actions"><button disabled={!graphic} onClick={onClose}>確定</button>{graphic && <button className="outline" onClick={onGraphicRemove}>この面のステッカーを削除</button>}</div>
+      <p className="direct-mark-status">3D本体をクリック / ドラッグ · 部品の下にも配置できます</p>
+      <div className="signature-actions"><button disabled={!graphic} onClick={onClose}>確定</button>{graphic && <button className="outline" onClick={onGraphicRemove}>ステッカーを外す</button>}</div>
       <p className="graphic-privacy">画像はこのブラウザ内だけで処理され、外部へ送信されません。</p>
     </>}
   </section>;
@@ -1200,20 +1195,11 @@ function SharePanel({ pedal, sourceImage, onNotice }: { pedal: Pedal; sourceImag
   </section>;
 }
 const stored = (): Pedal[] => { try { return JSON.parse(localStorage.getItem('pedal-gacha-v2') || '[]'); } catch { return []; } };
-export const normalizeMark = (value: Partial<PedalMark>, surface: MarkSurface = value.surface || 'front'): PedalMark => ({ ...createDefaultMark(surface), ...value, id: value.id || placementId('signature', surface), type: 'signature', surface, localPosition: value.localPosition || { x: value.u ?? .5, y: value.v ?? .5 }, scale: value.scale ?? value.size ?? .24 });
-export const normalizeGraphic = (value: UserGraphic): UserGraphic => { const asset = value.asset || value.textureUrl || value.sourceUrl; return { ...value, id: value.id || placementId('sticker', value.surface || 'front'), type: 'sticker', asset, sourceUrl: value.sourceUrl || asset, textureUrl: value.textureUrl || asset, surface: value.surface || 'front', localPosition: value.localPosition || { x: value.u ?? .5, y: value.v ?? .5 }, scale: value.scale ?? value.size ?? .34 }; };
-const storedFinishes = (): Record<string, PedalFinish> => {
-  try {
-    const current = JSON.parse(localStorage.getItem('pedal-gacha-finish-v2') || '{}') as Record<string, Partial<PedalFinish>>;
-    if (Object.keys(current).length) return Object.fromEntries(Object.entries(current).map(([id, finish]) => [id, { signatures: (finish.signatures || []).map(mark => normalizeMark(mark)), stickers: (finish.stickers || []).map(graphic => normalizeGraphic(graphic)) }]));
-    const legacy = JSON.parse(localStorage.getItem('pedal-gacha-marks-v1') || '{}') as Record<string, Partial<PedalMark>>;
-    return Object.fromEntries(Object.entries(legacy).map(([id, mark]) => [id, { signatures: [normalizeMark(mark)], stickers: [] }]));
-  } catch { return {}; }
-};
+const storedMarks = (): Record<string, PedalMark> => { try { return JSON.parse(localStorage.getItem('pedal-gacha-marks-v1') || '{}'); } catch { return {}; } };
 const storedBrand = (): BrandProfile => { try { const value = localStorage.getItem('pedal-gacha-brand-v1'); return value ? JSON.parse(value) : createBrandProfile('first-forge-maker'); } catch { return createBrandProfile('first-forge-maker'); } };
 const similarityScore = (a: Pedal, b: Pedal) => [a.enclosure === b.enclosure, a.knobs.length === b.knobs.length, a.controlVariant === b.controlVariant, a.knobStyle === b.knobStyle, a.designArchetype === b.designArchetype, a.namingPattern === b.namingPattern, a.promoDirection?.layout === b.promoDirection?.layout, a.motifType === b.motifType, a.motifCategory === b.motifCategory, a.palette?.[1] === b.palette?.[1]].filter(Boolean).length;
 export default function App() {
-  const [brandProfile, setBrandProfile] = useState<BrandProfile>(storedBrand); const [inputSources, setInputSources] = useState<InputSource[]>([]); const [effectType, setEffectType] = useState<EffectTypeChoice>('random'); const [sound, setSound] = useState<ToneChoice>('random'); const [colorChoice, setColor] = useState<FinishChoice>('random'); const mood: MoodChoice = 'random'; const [phase, setPhase] = useState<GachaState>('idle'); const [workflow, setWorkflow] = useState<WorkflowPhase>('select'); const [forgeStep, setForgeStep] = useState('思想を選択してください'); const [pedal, setPedal] = useState<Pedal | null>(null); const [collection, setCollection] = useState<Pedal[]>(stored); const [drawer, setDrawer] = useState(false); const [notice, setNotice] = useState(''); const [reduce, setReduce] = useState(false); const [viewReset, setViewReset] = useState(0); const [manualReset, setManualReset] = useState(0); const [viewMode, setViewMode] = useState<ViewMode>('stage'); const [runtimeMode, setRuntimeMode] = useState<RuntimeMode>('off'); const [coverImage, setCoverImage] = useState(''); const [finishes, setFinishes] = useState<Record<string, PedalFinish>>(storedFinishes); const [graphicError, setGraphicError] = useState(''); const [finishTool, setFinishTool] = useState<'signature' | 'sticker'>('signature'); const [markEditorOpen, setMarkEditorOpen] = useState(false); const [inspectSurface, setInspectSurface] = useState<MarkSurface>('front'); const canvasRef = useRef<HTMLCanvasElement | null>(null); const resultRef = useRef<HTMLElement>(null); const stageRef = useRef<HTMLElement>(null);
+  const [brandProfile, setBrandProfile] = useState<BrandProfile>(storedBrand); const [inputSources, setInputSources] = useState<InputSource[]>([]); const [effectType, setEffectType] = useState<EffectTypeChoice>('random'); const [sound, setSound] = useState<ToneChoice>('random'); const [colorChoice, setColor] = useState<FinishChoice>('random'); const mood: MoodChoice = 'random'; const [phase, setPhase] = useState<GachaState>('idle'); const [workflow, setWorkflow] = useState<WorkflowPhase>('select'); const [forgeStep, setForgeStep] = useState('思想を選択してください'); const [pedal, setPedal] = useState<Pedal | null>(null); const [collection, setCollection] = useState<Pedal[]>(stored); const [drawer, setDrawer] = useState(false); const [notice, setNotice] = useState(''); const [reduce, setReduce] = useState(false); const [viewReset, setViewReset] = useState(0); const [manualReset, setManualReset] = useState(0); const [viewMode, setViewMode] = useState<ViewMode>('stage'); const [runtimeMode, setRuntimeMode] = useState<RuntimeMode>('off'); const [coverImage, setCoverImage] = useState(''); const [userGraphic, setUserGraphic] = useState<UserGraphic | null>(null); const [graphicError, setGraphicError] = useState(''); const [finishTool, setFinishTool] = useState<'signature' | 'sticker'>('signature'); const [marks, setMarks] = useState<Record<string, PedalMark>>(storedMarks); const [markEditorOpen, setMarkEditorOpen] = useState(false); const [inspectSurface, setInspectSurface] = useState<MarkSurface>('front'); const canvasRef = useRef<HTMLCanvasElement | null>(null); const resultRef = useRef<HTMLElement>(null); const stageRef = useRef<HTMLElement>(null);
   const soundEnabled = true; const [autoRotate, setAutoRotate] = useState(false); const [viewHintVisible, setViewHintVisible] = useState(true); const viewHintTimerRef = useRef<number | null>(null);
   const forgeAudioRef = useRef<{ context: AudioContext; rumble?: { gain: GainNode; sources: AudioScheduledSourceNode[] } } | null>(null);
   const showViewHint = () => { setViewHintVisible(true); if (viewHintTimerRef.current !== null) window.clearTimeout(viewHintTimerRef.current); viewHintTimerRef.current = window.setTimeout(() => setViewHintVisible(false), 1800); };
@@ -1223,27 +1209,22 @@ export default function App() {
   const startForgeRumble = () => { const audio = getForgeAudio(); if (!audio) return; stopForgeRumble(0); const { context } = audio; const now = context.currentTime; const gain = context.createGain(); const filter = context.createBiquadFilter(); const low = context.createOscillator(); const body = context.createOscillator(); const tremolo = context.createOscillator(); const tremoloDepth = context.createGain(); low.type = 'sawtooth'; low.frequency.setValueAtTime(43, now); low.frequency.linearRampToValueAtTime(58, now + 2.6); body.type = 'sine'; body.frequency.setValueAtTime(67, now); body.detune.value = -9; tremolo.frequency.value = 8.4; tremoloDepth.gain.value = .022; filter.type = 'lowpass'; filter.frequency.value = 210; filter.Q.value = 5; gain.gain.setValueAtTime(.0001, now); gain.gain.exponentialRampToValueAtTime(.085, now + .34); tremolo.connect(tremoloDepth).connect(gain.gain); low.connect(filter); body.connect(filter); filter.connect(gain).connect(context.destination); low.start(now); body.start(now); tremolo.start(now); audio.rumble = { gain, sources: [low, body, tremolo] }; };
   const playForgeFlash = () => { const audio = getForgeAudio(); if (!audio) return; const { context } = audio; const now = context.currentTime; const shimmer = context.createOscillator(); const shimmerGain = context.createGain(); shimmer.type = 'sine'; shimmer.frequency.setValueAtTime(720, now); shimmer.frequency.exponentialRampToValueAtTime(2800, now + .22); shimmerGain.gain.setValueAtTime(.0001, now); shimmerGain.gain.exponentialRampToValueAtTime(.12, now + .018); shimmerGain.gain.exponentialRampToValueAtTime(.0001, now + .55); shimmer.connect(shimmerGain).connect(context.destination); shimmer.start(now); shimmer.stop(now + .58); const buffer = context.createBuffer(1, Math.floor(context.sampleRate * .36), context.sampleRate); const data = buffer.getChannelData(0); for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / data.length, 2); const noise = context.createBufferSource(); const band = context.createBiquadFilter(); const noiseGain = context.createGain(); noise.buffer = buffer; band.type = 'bandpass'; band.frequency.value = 1750; band.Q.value = 1.8; noiseGain.gain.setValueAtTime(.08, now); noiseGain.gain.exponentialRampToValueAtTime(.0001, now + .34); noise.connect(band).connect(noiseGain).connect(context.destination); noise.start(now); };
   const playForgeComplete = () => { const audio = getForgeAudio(); if (!audio) return; const { context } = audio; const now = context.currentTime; const tone = context.createOscillator(); const gain = context.createGain(); tone.type = 'triangle'; tone.frequency.setValueAtTime(420, now); tone.frequency.exponentialRampToValueAtTime(180, now + .24); gain.gain.setValueAtTime(.07, now); gain.gain.exponentialRampToValueAtTime(.0001, now + .32); tone.connect(gain).connect(context.destination); tone.start(now); tone.stop(now + .34); };
-  useEffect(() => () => { stopForgeRumble(.02); const context = forgeAudioRef.current?.context; if (context && context.state !== 'closed') void context.close(); }, []);
-  const activeFinish: PedalFinish = pedal ? finishes[pedal.id] || { signatures: [], stickers: [] } : { signatures: [], stickers: [] };
-  const activeMark = activeFinish.signatures.find(mark => mark.surface === inspectSurface) || createDefaultMark(inspectSurface);
-  const activeGraphic = activeFinish.stickers.find(graphic => graphic.surface === inspectSurface) || null;
+  useEffect(() => () => { stopForgeRumble(.02); const context = forgeAudioRef.current?.context; if (context && context.state !== 'closed') void context.close(); }, []);  const activeMark = pedal ? marks[pedal.id] ?? defaultMark : defaultMark;
   useEffect(() => { const q = matchMedia('(prefers-reduced-motion: reduce)'); setReduce(q.matches); const fn = () => setReduce(q.matches); q.addEventListener('change', fn); return () => q.removeEventListener('change', fn); }, []);
   useEffect(() => { localStorage.setItem('pedal-gacha-v2', JSON.stringify(collection)); }, [collection]);
-  useEffect(() => { try { const compact = Object.fromEntries(Object.entries(finishes).map(([id, finish]) => [id, { signatures: finish.signatures, stickers: finish.stickers.map(graphic => ({ ...graphic, sourceUrl: '', textureUrl: '' })) }])); localStorage.setItem('pedal-gacha-finish-v2', JSON.stringify(compact)); } catch { setNotice('仕上げデータを保存できません。画像サイズを小さくしてください。'); } }, [finishes]);
+  useEffect(() => { localStorage.setItem('pedal-gacha-marks-v1', JSON.stringify(marks)); }, [marks]);
   useEffect(() => { localStorage.setItem('pedal-gacha-brand-v1', JSON.stringify(brandProfile)); }, [brandProfile]);
   useEffect(() => {
-    if (!activeGraphic) return; let cancelled = false; const palette = colorChoice === 'random' ? paletteFamilies.acid[0] : paletteFamilies[colorChoice][0];
-    renderGraphicTexture(activeGraphic, palette).then(textureUrl => { if (!cancelled) changeGraphic({ textureUrl, asset: textureUrl }); }).catch(() => { if (!cancelled) setGraphicError('画像の加工プレビューを作成できませんでした。'); });
+    if (!userGraphic) return; let cancelled = false; const palette = colorChoice === 'random' ? paletteFamilies.acid[0] : paletteFamilies[colorChoice][0];
+    renderGraphicTexture(userGraphic, palette).then(textureUrl => { if (!cancelled) setUserGraphic(current => current?.sourceUrl === userGraphic.sourceUrl ? { ...current, textureUrl } : current); }).catch(() => { if (!cancelled) setGraphicError('画像の加工プレビューを作成できませんでした。'); });
     return () => { cancelled = true; };
-  }, [activeGraphic?.id, activeGraphic?.sourceUrl, activeGraphic?.usageMode, activeGraphic?.placementMode, activeGraphic?.transformStyle, activeGraphic?.transformStrength, activeGraphic?.colorBehavior, activeGraphic?.variant, colorChoice]);
+  }, [userGraphic?.sourceUrl, userGraphic?.usageMode, userGraphic?.placementMode, userGraphic?.transformStyle, userGraphic?.transformStrength, userGraphic?.colorBehavior, userGraphic?.variant, colorChoice]);
   const selectGraphic = (file: File) => {
     setGraphicError(''); if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) return setGraphicError('PNG / JPG / WEBPを選択してください。'); if (file.size > 15 * 1024 * 1024) return setGraphicError('画像は15MB以下にしてください。');
-    const reader = new FileReader(); reader.onerror = () => setGraphicError('画像ファイルを読み込めませんでした。'); reader.onload = () => { const sourceUrl = String(reader.result || ''); const image = new Image(); image.onerror = () => setGraphicError('画像ファイルが破損している可能性があります。'); image.onload = () => { if (!pedal) return; const limit = 768; const ratio = Math.min(1, limit / Math.max(image.naturalWidth, image.naturalHeight)); const canvas = document.createElement('canvas'); canvas.width = Math.max(1, Math.round(image.naturalWidth * ratio)); canvas.height = Math.max(1, Math.round(image.naturalHeight * ratio)); const context = canvas.getContext('2d'); if (!context) return setGraphicError('画像の保存データを作成できませんでした。'); context.drawImage(image, 0, 0, canvas.width, canvas.height); const storedUrl = canvas.toDataURL('image/webp', .9); const graphic: UserGraphic = { id: activeGraphic?.id || placementId('sticker', inspectSurface), type: 'sticker', asset: storedUrl, fileName: file.name, mimeType: 'image/webp', width: image.naturalWidth, height: image.naturalHeight, sourceUrl: storedUrl, textureUrl: storedUrl, usageMode: 'preserve', placementMode: 'sticker', transformStyle: 'sticker', transformStrength: 'medium', colorBehavior: 'preserve', variant: 0, surface: inspectSurface, localPosition: activeGraphic?.localPosition || { x: .5, y: .5 }, scale: activeGraphic?.scale || .34, rotation: activeGraphic?.rotation || 0 }; setFinishes(current => { const finish = current[pedal.id] || { signatures: [], stickers: [] }; return { ...current, [pedal.id]: { ...finish, stickers: upsertSurfaceItem(finish.stickers, graphic) } }; }); setViewReset(value => value + 1); if (image.naturalWidth < 320 || image.naturalHeight < 320) setGraphicError('小さい画像のため、大きくすると粗く見える可能性があります。'); }; image.src = sourceUrl; }; reader.readAsDataURL(file);
+    const reader = new FileReader(); reader.onerror = () => setGraphicError('画像ファイルを読み込めませんでした。'); reader.onload = () => { const sourceUrl = String(reader.result || ''); const image = new Image(); image.onerror = () => setGraphicError('画像ファイルが破損している可能性があります。'); image.onload = () => { setUserGraphic({ fileName: file.name, mimeType: file.type, width: image.naturalWidth, height: image.naturalHeight, sourceUrl, textureUrl: sourceUrl, usageMode: 'preserve', placementMode: 'sticker', transformStyle: 'sticker', transformStrength: 'medium', colorBehavior: 'preserve', variant: 0, surface: inspectSurface, u: .5, v: .5, size: .34, rotation: 0 }); if (image.naturalWidth < 320 || image.naturalHeight < 320) setGraphicError('小さい画像のため、大きくすると粗く見える可能性があります。'); }; image.src = sourceUrl; }; reader.readAsDataURL(file);
   };
-  const changeGraphic = (patch: Partial<UserGraphic>) => { if (!pedal || !activeGraphic) return; const next = normalizeGraphic({ ...activeGraphic, ...patch, localPosition: patch.localPosition || activeGraphic.localPosition, scale: patch.scale ?? activeGraphic.scale }); setFinishes(current => { const finish = current[pedal.id] || { signatures: [], stickers: [] }; return { ...current, [pedal.id]: { ...finish, stickers: upsertSurfaceItem(finish.stickers, next) } }; }); setInspectSurface(next.surface); setViewReset(value => value + 1); };
-  const changeMark = (nextValue: PedalMark) => { if (!pedal) return; const next = normalizeMark(nextValue, nextValue.surface); setFinishes(current => { const finish = current[pedal.id] || { signatures: [], stickers: [] }; return { ...current, [pedal.id]: { ...finish, signatures: upsertSurfaceItem(finish.signatures, next) } }; }); setInspectSurface(next.surface); setViewReset(value => value + 1); };
-  const removeMark = () => { if (!pedal) return; setFinishes(current => { const finish = current[pedal.id] || { signatures: [], stickers: [] }; return { ...current, [pedal.id]: { ...finish, signatures: finish.signatures.filter(item => item.id !== activeMark.id) } }; }); setViewReset(value => value + 1); };
-  const removeGraphic = () => { if (!pedal || !activeGraphic) return; setFinishes(current => { const finish = current[pedal.id] || { signatures: [], stickers: [] }; return { ...current, [pedal.id]: { ...finish, stickers: finish.stickers.filter(item => item.id !== activeGraphic.id) } }; }); setGraphicError(''); setViewReset(value => value + 1); };
+  const changeGraphic = (patch: Partial<UserGraphic>) => setUserGraphic(current => current ? { ...current, ...patch } : current);
+  const changeMark = (next: PedalMark) => { if (!pedal) return; setMarks(current => ({ ...current, [pedal.id]: next })); setViewReset(value => value + 1); };
   useEffect(() => { if (phase === 'result' && resultRef.current && !reduce) gsap.fromTo(resultRef.current, { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: .65, ease: 'power3.out' }); }, [phase, reduce]);
   useEffect(() => { if (phase !== 'result' || !pedal) return; const timer = window.setTimeout(() => { try { const image = canvasRef.current?.toDataURL('image/jpeg', .9); if (image) setCoverImage(image); } catch { setCoverImage(''); } }, reduce ? 220 : 620); return () => window.clearTimeout(timer); }, [phase, pedal, viewMode, runtimeMode, viewReset, reduce]);
   const run = () => {
@@ -1264,7 +1245,7 @@ export default function App() {
       standard = generate(input);
     }
     const p = standard;
-    setPedal(p); setGraphicError(''); setCoverImage(''); setViewMode('stage'); setRuntimeMode('off'); setInspectSurface('front'); setMarkEditorOpen(false); setAutoRotate(false); setWorkflow('forging'); setForgeStep('音の性質を抽出中'); startForgeRumble(); setPhase('cranking');
+    setPedal(p); setUserGraphic(null); setGraphicError(''); setCoverImage(''); setViewMode('stage'); setRuntimeMode('off'); setInspectSurface('front'); setMarkEditorOpen(false); setAutoRotate(false); setWorkflow('forging'); setForgeStep('音の性質を抽出中'); startForgeRumble(); setPhase('cranking');
     requestAnimationFrame(() => stageRef.current?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' }));
     const complete = () => { stopForgeRumble(.12); playForgeComplete(); setForgeStep('錬成完了'); setRuntimeMode('play'); setPhase('result'); setWorkflow('forged'); setCollection(current => current.some(item => item.id === p.id) ? current : [p, ...current].slice(0, 24)); };
     if (reduce) return void window.setTimeout(complete, 160);
@@ -1287,7 +1268,7 @@ export default function App() {
     if (!pedal) return; await document.fonts?.ready; const sheet = document.createElement('canvas'); sheet.width = 1240; sheet.height = 1754; const ctx = sheet.getContext('2d'); if (!ctx) return setNotice('PDF EXPORT IS UNAVAILABLE');
     ctx.fillStyle = '#0c0f0c'; ctx.fillRect(0, 0, sheet.width, sheet.height); ctx.fillStyle = '#c7ff1a'; ctx.font = '700 45px Arial, sans-serif'; ctx.fillText('PEDAL FORGE / ALCHEMY SPECIFICATION', 92, 115); ctx.fillStyle = '#edf2e8'; ctx.font = '700 68px Arial, sans-serif'; ctx.fillText(pedal.name, 92, 215); ctx.strokeStyle = '#47513f'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(92, 260); ctx.lineTo(1148, 260); ctx.stroke();
     const lines = [`MAKER  ${pedal.brand?.manufacturerName || pedal.brandLabel || 'FURNACE AUDIO WORKS'}`, `MODEL  ${pedal.modelNumber || pedal.serial}`, `TYPE  ${pedal.type}`, `INPUT SOURCE  ${inputSourceSummary(pedal.inputSources?.length ? pedal.inputSources : pedal.instrument === 'both' ? ['guitar', 'bass'] : [pedal.instrument])}`, `SIGNAL  ${pedal.signalProfile ? `${pedal.signalProfile.level} / ${pedal.signalProfile.headroom} headroom / ${pedal.ioChannels || 'mono'}` : 'instrument / standard headroom / mono'}`, `NAMING  ${(pedal.namingFamily || pedal.namingPattern || 'english').toUpperCase()}${pedal.kanjiTerm ? ` / ${pedal.kanjiTerm} / ${pedal.kanjiUsage}` : ''}`, `ARCHITECTURE  ${pedal.effectArchitecture || pedal.type}`, `GROUPS  ${pedal.controlGroups?.map(group => `${group.name}: ${group.controls.join(' / ')}`).join(' | ') || 'SINGLE CONTROL GROUP'}`, `SERIAL  ${pedal.serial}`, `CONCEPT  ${pedal.copy}`, `HARDWARE CULTURE  ${pedal.hardwareCulture || 'CLASSIC STOMP'}`, `ENCLOSURE  ${enclosureDimensions[pedal.enclosure].label}`, `CONDITION  ${pedal.condition || 'FACTORY NEW'}`, `MATERIAL  ${(pedal.materialStyle || 'powder').toUpperCase()}`, `GRAPHICS  ${pedal.graphicMode || 'MINIMAL'} / ${pedal.artDirection || 'MINIMAL SYMBOL'}`, `TYPOGRAPHY  ${(pedal.typography?.mode || 'standard').toUpperCase()} / ${(pedal.typography?.displayFontCategory || 'modern_sans').toUpperCase()}`, `LAYOUT  ${pedal.layoutChecks?.join(' / ') || 'CONTROL CLEARANCE / LABEL CLEARANCE / FOOT AREA'}`, `DESIGN CHECK  ${pedal.designScore || 82} / 100`, `CONTROLS  ${(pedal.controlLayoutMode || 'knob-only').toUpperCase()} / ${[...pedal.knobs, ...(pedal.eqSliders?.map(slider => slider.label) || [])].join(' / ') || 'FIXED CIRCUIT'}`, `FOOT / LED  ${(pedal.footswitchStyle || 'metal').toUpperCase()} / ${indicatorSummary(pedal)}`, `I/O  ${pedal.jackLayout === 'top' ? 'TOP PAIR' : pedal.jackLayout === 'hybrid' ? 'SIDE OUTPUT / TOP INPUT' : 'SIDE L/R'} / ${(pedal.extraPort || 'none').toUpperCase()}`, `SPECIAL  ${pedal.special}`, `BYPASS  ${pedal.bypass}`, `POWER  ${pedal.power} / ${(pedal.powerPlacement || 'top').toUpperCase()}`, `SIZE  ${pedal.dimensions}   WEIGHT  ${pedal.weight}`, `RECOMMENDED  ${pedal.usage}`, `CAUTION  ${pedal.warning}`];
-    activeFinish.stickers.forEach(graphic => lines.push(`STICKER  ${graphic.fileName} / ${graphic.surface.toUpperCase()} / ${Math.round(graphic.scale * 100)}%`)); activeFinish.signatures.filter(mark => mark.enabled && mark.text.trim()).forEach(mark => lines.push(`OWNER MARK  ${mark.text} / ${mark.surface.toUpperCase()} / ${mark.style.toUpperCase()}`));
+    if (userGraphic) lines.push(`STICKER  ${userGraphic.fileName} / ${userGraphic.surface.toUpperCase()} / ${Math.round(userGraphic.size * 100)}%`); if (activeMark.enabled && activeMark.text.trim()) lines.push(`OWNER MARK  ${activeMark.text} / ${activeMark.surface.toUpperCase()} / ${activeMark.style.toUpperCase()}`);
     let y = 325; ctx.font = '30px Arial, sans-serif'; for (const line of lines) { let row = ''; for (const char of line) { const next = row + char; if (ctx.measureText(next).width > 1030) { ctx.fillText(row, 92, y); row = char; y += 40; } else row = next; } ctx.fillText(row, 92, y); y += 64; } ctx.fillStyle = pedal.palette[0]; ctx.fillRect(92, 1600, 1056, 10); ctx.fillStyle = '#8f9a89'; ctx.font = '24px Arial, sans-serif'; ctx.fillText(`ONE OF ONE FORGED SOUND MACHINE${pedal.owner ? ` / ${pedal.owner}` : ''}`, 92, 1665); const doc = new jsPDF({ unit: 'mm', format: 'a4' }); doc.addImage(sheet.toDataURL('image/png'), 'PNG', 0, 0, 210, 297); doc.save(`${pedal.serial}.pdf`);
   };
   const toggleInputSource = (source: InputSource) => setInputSources(current => current.includes(source) ? current.filter(item => item !== source) : [...current, source]);
@@ -1324,7 +1305,7 @@ export default function App() {
     <div className="forge-divider" aria-hidden="true"><span>DESCEND TO THE FORGING CHAMBER</span></div>
     <section id="forging-stage" ref={stageRef} className={'stage-wrap phase-' + phase + ' view-' + viewMode + (workflow === 'forged' || workflow === 'finishing' ? ' has-finish-rail' : '') + (workflow === 'finishing' ? ' is-editing' : '')}>
       <div className="workflow-location"><span>02 / FORGE</span><b>錬成</b></div><div className="stage-label">{phase === 'idle' ? 'NO PEDAL YET / SELECT PARAMETERS' : phase === 'result' ? 'ALCHEMY COMPLETE / DRAG 360° / WHEEL TO ZOOM' : forgeStep}</div>
-      <Stage pedal={pedal} phase={phase} canvasRef={canvasRef} reduce={reduce} resetToken={viewReset} viewMode={viewMode} runtimeMode={runtimeMode} userGraphics={activeFinish.stickers} marks={activeFinish.signatures} activeMark={activeMark} activeGraphic={activeGraphic} autoRotate={autoRotate} directMarkEditing={workflow === 'finishing'} finishTool={finishTool} onMarkChange={changeMark} onGraphicChange={next => changeGraphic(next)} onViewInteract={showViewHint} />
+      <Stage pedal={pedal} phase={phase} canvasRef={canvasRef} reduce={reduce} resetToken={viewReset} viewMode={viewMode} runtimeMode={runtimeMode} userGraphic={userGraphic} mark={activeMark} inspectSurface={inspectSurface} autoRotate={autoRotate} directMarkEditing={workflow === 'finishing'} finishTool={finishTool} onMarkChange={changeMark} onGraphicChange={next => setUserGraphic(next)} onViewInteract={showViewHint} />
       {phase === 'result' && <div className={'inspection-frame' + (viewHintVisible ? ' is-hinting' : '')} aria-hidden="true">
         <div className="inspection-frame-head"><b>360° VIEW</b><span>↔ DRAG TO ROTATE</span></div>
         <i className="corner corner-nw" /><i className="corner corner-ne" /><i className="corner corner-sw" /><i className="corner corner-se" />
@@ -1346,7 +1327,7 @@ export default function App() {
       </aside>}
       {phase === 'result' && pedal && workflow === 'finishing' && (
         <aside className="stage-editor-drawer" aria-label="3D最終加工パネル">
-          <FinishEditor mark={activeMark} graphic={activeGraphic} surface={inspectSurface} error={graphicError} tool={finishTool} open={markEditorOpen} onTool={setFinishTool} onClose={() => { setMarkEditorOpen(false); setWorkflow('forged'); }} onMarkChange={changeMark} onMarkRemove={removeMark} onGraphicFile={selectGraphic} onGraphicChange={changeGraphic} onGraphicRemove={removeGraphic} onInspect={surface => setInspectSurface(surface)} />
+          <FinishEditor mark={activeMark} graphic={userGraphic} error={graphicError} tool={finishTool} open={markEditorOpen} onTool={setFinishTool} onClose={() => { setMarkEditorOpen(false); setWorkflow('forged'); }} onMarkChange={changeMark} onMarkRemove={() => { changeMark({ ...defaultMark }); setInspectSurface('front'); }} onGraphicFile={selectGraphic} onGraphicChange={changeGraphic} onGraphicRemove={() => { setUserGraphic(null); setGraphicError(''); }} onInspect={surface => { setInspectSurface(surface); setViewReset(value => value + 1); }} />
         </aside>
       )}
     </section>
@@ -1357,7 +1338,7 @@ export default function App() {
     </section>}
     {phase === 'result' && pedal && workflow === 'shipped' && <EditorialResult pedal={pedal} coverImage={coverImage} resultRef={resultRef} resetKey={manualReset} onPng={png} onPdf={pdf} onReforge={run} />}
     {phase === 'result' && pedal && workflow === 'shipped' && <SharePanel pedal={pedal} sourceImage={coverImage} onNotice={setNotice} />}
-    {drawer && <div className="drawer-backdrop" role="presentation" onMouseDown={() => setDrawer(false)}><aside className="drawer" role="dialog" aria-modal="true" aria-label="錬成済みペダル保管庫" onMouseDown={e => e.stopPropagation()}><button className="close" onClick={() => setDrawer(false)} aria-label="保管庫を閉じる">×</button><p className="eyebrow">FORGED ARCHIVE</p><h2>FORGED PEDALS</h2>{collection.length ? <div className="cards">{collection.map(p => <button key={p.id} onClick={() => { setPedal(p); setForgeStep('錬成完了'); setPhase('result'); setWorkflow('forged'); setViewMode('stage'); setRuntimeMode('play'); setInspectSurface('front'); setMarkEditorOpen(false); setDrawer(false); }}><span style={{ background: p.palette[0] }} /><b>{p.name}</b><small>{p.brand?.manufacturerName || p.brandLabel || 'FURNACE AUDIO WORKS'} / {p.modelNumber || p.serial}</small></button>)}</div> : <p className="empty">まだ錬成された個体はありません。</p>}</aside></div>}
+    {drawer && <div className="drawer-backdrop" role="presentation" onMouseDown={() => setDrawer(false)}><aside className="drawer" role="dialog" aria-modal="true" aria-label="錬成済みペダル保管庫" onMouseDown={e => e.stopPropagation()}><button className="close" onClick={() => setDrawer(false)} aria-label="保管庫を閉じる">×</button><p className="eyebrow">FORGED ARCHIVE</p><h2>FORGED PEDALS</h2>{collection.length ? <div className="cards">{collection.map(p => <button key={p.id} onClick={() => { setPedal(p); setForgeStep('錬成完了'); setPhase('result'); setWorkflow('forged'); setViewMode('stage'); setRuntimeMode('play'); setInspectSurface('front'); setMarkEditorOpen(false); setUserGraphic(null); setDrawer(false); }}><span style={{ background: p.palette[0] }} /><b>{p.name}</b><small>{p.brand?.manufacturerName || p.brandLabel || 'FURNACE AUDIO WORKS'} / {p.modelNumber || p.serial}</small></button>)}</div> : <p className="empty">まだ錬成された個体はありません。</p>}</aside></div>}
     {notice && <button className="toast" onAnimationEnd={() => setNotice('')}>{notice}</button>}<footer>NO CLOUD. NO ACCOUNT. FORGED UNITS STAY IN THIS BROWSER.</footer>
   </main>;
 }
