@@ -18,6 +18,7 @@ Updated: 2026-08-24 (Asia/Tokyo)
 - Rebuilt page 3 as one square product photograph.
 - Rebuilt page 4 as a full-page package still life containing a three-dimensional box, pedal, booklet, and serial/warranty card.
 - Added Sites hosting configuration, Vite Sites plugin integration, and a Cloudflare Worker SPA fallback entry.
+- Removed two unreferenced legacy pedal-art atlas PNGs from the shipped public assets; originals are recoverable from the current-task backup.
 
 ## Changed files/components
 - src/App.tsx: DirectMarkSurface, PedalModel/Stage mark-edit props, right finish rail, simplified SignatureEditor, unified opening spread, square page 3, package page 4.
@@ -29,7 +30,7 @@ Updated: 2026-08-24 (Asia/Tokyo)
 - HANDOFF.md: current continuation state.
 
 ## Verification (2026-08-24)
-- npm run build: pass with Vite 8.2.2; client built in 2.53s and Worker server entry built in 993ms.
+- npm run build: pass with Vite 8.2.2 after asset cleanup; client built in 2.33s and Worker server entry built in 552ms.
 - Output: main bundle 1,688.72 kB / 499.49 kB gzip.
 - Existing chunk-size warning remains; it did not fail the build.
 - No tests, typecheck, generation audit, or browser QA were run for this change, per the user's request.
