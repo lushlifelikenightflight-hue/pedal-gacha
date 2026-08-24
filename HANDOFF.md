@@ -1,12 +1,23 @@
 # HANDOFF
 
-Updated: 2026-08-25 00:10 (Asia/Tokyo)
+Updated: 2026-08-25 01:05 (Asia/Tokyo)
 
 ## Objective and status
-- Objective: Preserve full OrbitControls rotation on touch devices and clearly mark the 3D area as non-scrollable.
+- Objective: Support persistent, directly editable signatures and stickers on FRONT, LEFT, RIGHT, and BACK without mirroring or surface artifacts.
 - Status: Completed and published through GitHub Pages at https://lushlifelikenightflight-hue.github.io/pedal-gacha/. The GitHub repository is public at https://github.com/lushlifelikenightflight-hue/pedal-gacha.
 
 ## Completed durable work
+- Replaced the single signature and single sticker state with one independently editable item per tool and surface.
+- Added canonical persisted fields: `type`, `asset` or `text`, `surface`, `localPosition`, `rotation`, and `scale`.
+- Added backward migration from `pedal-gacha-marks-v1` and saved all finish items in `pedal-gacha-finish-v2`.
+- Compactly stores each sticker image once after browser-side resize to at most 768px.
+- Unified all four faces through local UV coordinates, outward-facing quaternions, and fixed 0.018-0.024 surface offsets.
+- Corrected RIGHT surface local-X mapping so click position and rendered position are not mirrored.
+- Added Raycast hit planes for all four enclosure faces; clicking or dragging updates the selected item's surface-local position.
+- Kept OrbitControls enabled during finishing; dragging the canvas background rotates the pedal while dragging a visible enclosure face edits the selected item.
+- FRONT, LEFT, RIGHT, and BACK tabs now select independent items instead of moving the previous face's item.
+- Per-surface move, rotate, scale, replace, and delete remain available after placement.
+- Archive reload, PDF metadata, the live 3D stage after shipping, and cover-image regeneration all use the persisted multi-surface finish data.
 - Separated VIEW CONTROL / DRAG / AUTO from the BACKGROUND, PHOTO, and POWER option groups.
 - Added a persistent 360° VIEW / DRAG TO ROTATE header, thin inspection boundary, corner markers, and scroll-direction cue around the 3D canvas.
 - Added a temporary Japanese drag overlay on first result reveal and whenever the touch view or VIEW CONTROL is activated.
@@ -46,7 +57,9 @@ Updated: 2026-08-25 00:10 (Asia/Tokyo)
 - Added portrait-camera distance fitting so tall phone viewports frame the pedal instead of cropping it.
 
 ## Changed files/components
-- src/App.tsx: original OrbitControls touch rotation, 360-degree hint copy, and non-scroll warning copy.
+- src/App.tsx: multi-surface finish model, local transforms/quaternions, Raycast editing, persistence migration, archive reload, and shipping retention.
+- scripts/qa-finish-placement.ts: deterministic four-face orientation, mirror, offset, simultaneous-item, and serialization checks.
+- package.json: `qa:finish` command.
 - src/design-overrides.css: high-contrast non-scrollable inspection region, warning band, and `touch-action: none`.
 - vite.config.ts: uses `/pedal-gacha/` as the base path during GitHub Actions builds.
 - .github/workflows/deploy-pages.yml: typechecks, builds, uploads `dist/client`, and deploys GitHub Pages on `main`.
@@ -58,6 +71,12 @@ Updated: 2026-08-25 00:10 (Asia/Tokyo)
 - HANDOFF.md: current continuation state.
 
 ## Verification (2026-08-25)
+- `npm run typecheck`: passed on the final source.
+- `npm run qa:finish`: passed for four surfaces, simultaneous items, outward normals, non-mirrored axes, offsets, and serialization.
+- `npm run audit:generation`: 5,000 generated pedals, zero layout collisions, zero failures.
+- `GITHUB_ACTIONS=true npm run build`: passed with Vite 8.2.2.
+- lint: not configured in package scripts.
+- Browser and Windows UI automation both failed before connection because the environment-owned trusted Node process exited; interactive mouse/touch smoke testing could not be automated in this session.
 - Full-rotation restoration: `npm run typecheck` passed.
 - Full-rotation restoration: `GITHUB_ACTIONS=true npm run build` passed with Vite 8.2.2.
 - The existing main-chunk size warning remains non-fatal.
@@ -84,10 +103,11 @@ Updated: 2026-08-25 00:10 (Asia/Tokyo)
 - The GitHub repository and Pages site are public; retain that access level unless the user explicitly requests a change.
 
 ## Known issues
-- Browser visual/touch verification has not been run.
+- Interactive browser mouse/touch verification remains unrun because both available UI-control runtimes failed to initialize.
 - The main production chunk is large and remains a future performance optimization candidate.
 
 ## Rollback
+- GitHub commit `16fd8df` is the rollback point before the multi-surface finish persistence change.
 - GitHub commit `8790d7d` is the immediate rollback point before the full-rotation restoration.
 - Sites version 5 is the immediate production rollback target.
 - Sites version 4 is the immediate production rollback target.
