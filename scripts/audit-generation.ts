@@ -1,0 +1,53 @@
+import { enclosureDimensions, generate, packageTemplateFor } from '../src/App';
+import { createBrandProfile } from '../src/design-engine';
+import { createHybridLayoutPlan } from '../src/layout-engine';
+
+const effectTypes = ['random', 'boost', 'drive', 'fuzz', 'compressor', 'eq-filter', 'modulation', 'phaser', 'tremolo', 'delay', 'reverb', 'pitch', 'synth', 'looper', 'glitch', 'experimental', 'multi'] as const;
+const animalTypes = ['cat', 'moth', 'dog', 'rabbit', 'bird', 'fish', 'bear', 'fox'] as const;
+const eqPresets = ['eq-2-band', 'eq-3-band', 'eq-5-band', 'eq-7-band'] as const;
+const packageTemplates = new Map<string, number>();
+const counts = { total: 0, animal: new Map<string, number>(), animalHidden: 0, paddle: 0, eqMode: new Map<string, number>(), eqPreset: new Map<string, number>(), hybridTemplate: new Map<string, number>(), layoutCollisions: 0 };
+const brand = createBrandProfile('generation-audit-brand');
+const failures: string[] = [];
+
+for (let index = 0; index < 5000; index += 1) {
+  const input = { effectType: effectTypes[index % effectTypes.length], sound: 'random' as const, mood: 'random' as const, colorChoice: 'random' as const, seed: `generation-audit-${index}`, brand };
+  const pedal = generate(input); counts.total += 1; const packageTemplate = packageTemplateFor(pedal); packageTemplates.set(packageTemplate, (packageTemplates.get(packageTemplate) || 0) + 1);
+  if (pedal.motifCategory === 'animal') { counts.animal.set(pedal.motifType, (counts.animal.get(pedal.motifType) || 0) + 1); if (!['ONE POINT', 'PANEL', 'TYPOGRAPHY'].includes(pedal.graphicMode || '')) counts.animalHidden += 1; }
+  if (pedal.footswitchStyle === 'large-lower-paddle') { counts.paddle += 1; if (!['compact', 'standard125', 'tall'].includes(pedal.enclosure) || pedal.footswitches !== 1 || pedal.controlLayoutMode !== 'knob-only') failures.push(`invalid paddle: ${pedal.seed}`); }
+  if (pedal.controlLayoutMode && pedal.controlLayoutMode !== 'knob-only') {
+    counts.eqMode.set(pedal.controlLayoutMode, (counts.eqMode.get(pedal.controlLayoutMode) || 0) + 1);
+    if (!pedal.eqSliders?.length || !pedal.eqPreset) failures.push(`missing EQ data: ${pedal.seed}`);
+    if (['nano', 'micro', 'mini'].includes(pedal.enclosure)) failures.push(`EQ on tiny enclosure: ${pedal.seed}`);
+    if (pedal.eqSliders?.length) { const size = enclosureDimensions[pedal.enclosure]; const plan = createHybridLayoutPlan({ width: size.width, height: size.height, knobCount: pedal.knobs.length, sliderCount: pedal.eqSliders.length, hasLargePaddle: pedal.footswitchStyle === 'large-lower-paddle', footswitchCount: pedal.footswitches, seed: pedal.seed }); counts.hybridTemplate.set(plan.template, (counts.hybridTemplate.get(plan.template) || 0) + 1); counts.layoutCollisions += plan.collisionCount; }
+  }
+  if (pedal.eqPreset) counts.eqPreset.set(pedal.eqPreset, (counts.eqPreset.get(pedal.eqPreset) || 0) + 1);
+}
+
+const forcedTemplates = new Map<string, number>();
+const forcedScenarios = [
+  { width: 2.35, height: 3.65, knobCount: 3, sliderCount: 3, hasLargePaddle: false, footswitchCount: 1 as const },
+  { width: 2.35, height: 3.65, knobCount: 2, sliderCount: 3, hasLargePaddle: true, footswitchCount: 1 as const },
+  { width: 4.4, height: 3.2, knobCount: 3, sliderCount: 3, hasLargePaddle: false, footswitchCount: 2 as const },
+  { width: 4.4, height: 3.2, knobCount: 2, sliderCount: 5, hasLargePaddle: false, footswitchCount: 2 as const },
+];
+for (const [scenarioIndex, scenario] of forcedScenarios.entries()) for (let index = 0; index < 160; index += 1) { const plan = createHybridLayoutPlan({ ...scenario, seed: `forced-${scenarioIndex}-${index}` }); forcedTemplates.set(plan.template, (forcedTemplates.get(plan.template) || 0) + 1); if (plan.collisionCount) failures.push(`forced layout collision: ${plan.template}/${scenarioIndex}/${index}`); }
+
+for (const animal of animalTypes) if (!counts.animal.get(animal)) failures.push(`animal never generated: ${animal}`);
+for (const preset of eqPresets) if (!counts.eqPreset.get(preset)) failures.push(`EQ preset never generated: ${preset}`);
+for (const template of ['H05', 'H06', 'H07', 'H08', 'H09', 'H10', 'H11', 'H12', 'H13', 'H14']) if (!forcedTemplates.get(template)) failures.push(`hybrid template unreachable: ${template}`);
+for (const template of ['open-box-standard', 'manual-on-top', 'pedal-lifted', 'full-contents']) if (!packageTemplates.get(template)) failures.push(`package template unreachable: ${template}`);
+if (!counts.paddle) failures.push('large lower paddle never generated');
+if (!counts.eqMode.get('knob-plus-slider-eq')) failures.push('hybrid knob/EQ mode never generated');
+if (!counts.eqMode.get('slider-eq-main')) failures.push('slider-main EQ mode never generated');
+if (counts.animalHidden) failures.push(`animal motif hidden by graphic mode: ${counts.animalHidden}`);
+const eqTotal = [...counts.eqMode.values()].reduce((sum, count) => sum + count, 0);
+if (eqTotal / counts.total > .16) failures.push(`EQ rate too high: ${(eqTotal / counts.total).toFixed(3)}`);
+if (counts.layoutCollisions) failures.push(`generated hybrid collisions: ${counts.layoutCollisions}`);
+
+const repeatInput = { effectType: 'random' as const, sound: 'random' as const, mood: 'random' as const, colorChoice: 'random' as const, seed: 'generation-audit-repeat', brand };
+const first = generate(repeatInput); const second = generate(repeatInput);
+if (JSON.stringify({ motifType: first.motifType, footswitchStyle: first.footswitchStyle, controlLayoutMode: first.controlLayoutMode, eqPreset: first.eqPreset, eqSliders: first.eqSliders }) !== JSON.stringify({ motifType: second.motifType, footswitchStyle: second.footswitchStyle, controlLayoutMode: second.controlLayoutMode, eqPreset: second.eqPreset, eqSliders: second.eqSliders })) failures.push('same seed is not deterministic');
+
+const report = { total: counts.total, packageTemplates: Object.fromEntries(packageTemplates), animals: Object.fromEntries(counts.animal), animalHidden: counts.animalHidden, largeLowerPaddle: counts.paddle, eqRate: eqTotal / counts.total, eqModes: Object.fromEntries(counts.eqMode), eqPresets: Object.fromEntries(counts.eqPreset), hybridTemplates: Object.fromEntries(counts.hybridTemplate), forcedTemplates: Object.fromEntries(forcedTemplates), layoutCollisions: counts.layoutCollisions, failures };
+console.log(JSON.stringify(report, null, 2)); if (failures.length) process.exitCode = 1;
