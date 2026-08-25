@@ -1291,7 +1291,16 @@ async function createSocialXShare(pedal: Pedal, sourceImage: string): Promise<Bl
   ctx.fillStyle = '#f2f0e8'; ctx.fillRect(0, 0, canvas.width, canvas.height); const image = sourceImage ? await loadShareImage(sourceImage).catch(() => null) : null;
   ctx.fillStyle = '#101510'; drawFittedCanvasText(ctx, pedal.name.replace(' // LIMITED', ''), 48, 72, 1104, 62, 34, 'Georgia');
   if (image) drawCoverContain(ctx, image, 40, 86, 1120, 480);
-  const lines = [`${pedal.copy}。`, `${pedal.type.split(' ').slice(0, 2).join(' ')}の気配が、弾いた輪郭のあとを静かに追いかける。`, `${pedal.usage}へ、まだ名前のない余韻を連れていく。`];
+  const effectType = pedal.type.toUpperCase();
+  const lines = /FUZZ|DISTORTION|DRIVE|BOOST|CRUSH/.test(effectType)
+    ? [`${pedal.copy}。`, '密度を増した倍音が、弾いた輪郭の奥で静かに熱を帯びる。', '一音ごとの余白に、ざらついた光の残像を残していく。']
+    : /DELAY|ECHO|REVERB|AMBIENT/.test(effectType)
+      ? [`${pedal.copy}。`, 'ほどけた反射音が、弾いた輪郭の向こうへゆっくり広がる。', '消え際の余白に、淡い残像だけを長く浮かべていく。']
+      : /CHORUS|FLANGER|PHASER|TREMOLO|VIBRATO|MOD/.test(effectType)
+        ? [`${pedal.copy}。`, '揺れる倍音が、音の輪郭を水面のようにやわらかく曲げる。', '一音ごとの隙間に、呼吸するような光と影を残していく。']
+        : /PITCH|SYNTH|RING|GLITCH|NOISE/.test(effectType)
+          ? [`${pedal.copy}。`, '変形した倍音が、音の輪郭を見知らぬ色へ塗り替える。', '一音ごとの余白に、予測できない小さな亀裂を残していく。']
+          : [`${pedal.copy}。`, '磨かれた倍音が、弾いた輪郭の奥に静かな立体感をつくる。', '一音ごとの余白に、長くほどける残像を残していく。'];
   ctx.fillStyle = '#242a23'; ctx.font = '600 18px Georgia, "Yu Mincho", serif'; lines.forEach((line, index) => ctx.fillText(line, 52, 594 + index * 26));
   return canvasBlob(canvas);
 }
@@ -1313,7 +1322,7 @@ function SharePanel({ pedal, sourceImage, editorialTopImage, onNotice }: { pedal
   const copyText = async () => { await navigator.clipboard.writeText(completeText); onNotice('投稿文をコピーしました'); };
   const saveImage = async () => { downloadShareFile(await makeFile()); onNotice('共有画像を保存しました'); };
   const copyImage = async () => { try { if (typeof ClipboardItem === 'undefined' || !navigator.clipboard?.write) throw new Error('UNSUPPORTED'); const blob = imageBlob || await createBlob(); await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]); onNotice('画像をクリップボードへコピーしました'); } catch { await saveImage(); onNotice('画像コピー非対応のためPNGを保存しました'); } };
-  const openX = async () => { window.open('https://x.com/home', '_blank', 'noopener,noreferrer'); setBusy(true); try { try { await navigator.clipboard.writeText(completeText); } catch { /* The editable post remains visible for manual copy. */ } try { await copyImage(); } catch { await saveImage(); } onNotice('Xを開きました。コピーまたは保存した画像を投稿へ添付してください。'); } finally { setBusy(false); } };
+  const openX = async () => { const intentUrl = new URL('https://x.com/intent/post'); intentUrl.searchParams.set('text', completeText); window.open(intentUrl.toString(), '_blank', 'noopener,noreferrer'); setBusy(true); try { try { await navigator.clipboard.writeText(completeText); } catch { /* The editable post remains visible for manual copy. */ } try { await copyImage(); } catch { await saveImage(); } onNotice('Xの下書きを開きました。コピーまたは保存した画像を投稿へ添付してください。'); } finally { setBusy(false); } };
   return <section className="share-panel share-final-workbench" aria-labelledby="share-title">
     <header className="share-hero-copy"><span>SHARE / FINAL</span><h2 id="share-title">このエフェクターをXでシェア</h2></header>
     <div className="share-workbench"><div><div className="share-preview">{preview ? <img src={preview} alt="宣材4ページ目と共通のX共有画像プレビュー" /> : <span>GENERATING PAGE 4 IMAGE…</span>}</div><p className="share-page-source">EDITORIAL PAGE 04 / X SHARE MASTER</p></div>
