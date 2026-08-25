@@ -1430,7 +1430,18 @@ function ArchiveDrawer({ collection, boards, finishes, archiveImages, selectedBo
   const [tab, setTab] = useState<'pedals' | 'boards'>('pedals'); const [sharing, setSharing] = useState(false); const [shareTexts, setShareTexts] = useState<Record<string, string>>({}); const boardCaptureRef = useRef<(() => Promise<Blob>) | null>(null); const selected = boards.find(board => board.id === selectedBoardId) || boards[0] || null; const boardPedals = selected ? selected.pedalIds.map(id => collection.find(item => item.id === id)).filter((item): item is Pedal => Boolean(item)) : []; const defaultHashtags = '#PEDALFORGE #エフェクターボード #エフェクター'; const defaultBody = selected ? 'PEDAL FORGE / ' + (selected.name.trim() || 'MY EFFECTS BOARD') + (boardPedals.length ? '\n' + boardPedals.map(item => item.name.replace(' // LIMITED', '')).join(' → ') : '') : ''; const defaultShareText = selected ? defaultBody.slice(0, 278 - defaultHashtags.length).trimEnd() + '\n\n' + defaultHashtags : ''; const shareText = selected ? shareTexts[selected.id] ?? defaultShareText : '';
   const shareBoard = async () => {
     if (!selected || !boardPedals.length || !boardCaptureRef.current) return; setSharing(true);
-    try { const blob = await boardCaptureRef.current(); const file = new File([blob], (selected.name.trim() || 'pedal-board').replace(/[\/:*?"<>|]+/g, '-') + '.png', { type: 'image/png' }); if (navigator.share && (!navigator.canShare || navigator.canShare({ files: [file] }))) { await navigator.share({ files: [file], title: selected.name || 'PEDAL FORGE BOARD', text: shareText.trim() }); onNotice('3Dボード全体の画像を共有画面へ渡しました'); } else { downloadShareFile(file); onNotice('3Dボード全体の画像を保存しました'); } }
+    const capturePromise = boardCaptureRef.current(); const fileName = (selected.name.trim() || 'pedal-board').replace(/[\/:*?"<>|]+/g, '-') + '.png'; const mobileShare = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    try {
+      if (!mobileShare) {
+        const intentUrl = new URL('https://x.com/intent/post'); intentUrl.searchParams.set('text', shareText.trim()); window.open(intentUrl.toString(), '_blank', 'noopener,noreferrer');
+        try { if (typeof ClipboardItem === 'undefined' || !navigator.clipboard?.write) throw new Error('UNSUPPORTED'); await navigator.clipboard.write([new ClipboardItem({ 'image/png': capturePromise })]); onNotice('Xの下書きを開き、ボード画像をコピーしました。投稿欄でCtrl+Vを押してください。'); }
+        catch { const file = new File([await capturePromise], fileName, { type: 'image/png' }); downloadShareFile(file); onNotice('Xの下書きを開きました。保存したボード画像を投稿へ添付してください。'); }
+        return;
+      }
+      const file = new File([await capturePromise], fileName, { type: 'image/png' });
+      if (navigator.share && (!navigator.canShare || navigator.canShare({ files: [file] }))) { await navigator.share({ files: [file], title: selected.name || 'PEDAL FORGE BOARD', text: shareText.trim() }); onNotice('3Dボード全体の画像を共有画面へ渡しました'); }
+      else { downloadShareFile(file); onNotice('3Dボード全体の画像を保存しました'); }
+    }
     catch (error) { if (error instanceof DOMException && error.name === 'AbortError') onNotice('共有をキャンセルしました'); else onNotice('ボード画像を共有できませんでした'); } finally { setSharing(false); }
   };
   return <div className="drawer-backdrop" role="presentation" onMouseDown={onClose}><aside className="drawer archive-drawer" role="dialog" aria-modal="true" aria-label="錬成済みペダル保管庫" onMouseDown={event => event.stopPropagation()}><button className="close" onClick={onClose} aria-label="保管庫を閉じる">×</button><p className="eyebrow">FORGED ARCHIVE</p><h2>ARCHIVE</h2>
