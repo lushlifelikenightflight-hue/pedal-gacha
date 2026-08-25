@@ -1176,6 +1176,21 @@ function EditorialCoverCaptureScene({ pedal, stickers, signatures, onCapture }: 
 function EditorialCoverCapture({ pedal, stickers, signatures, onCapture }: { pedal: Pedal; stickers: UserGraphic[]; signatures: PedalMark[]; onCapture: (image: string) => void }) {
   return <div className="editorial-cover-capture" aria-hidden="true"><Canvas dpr={1} gl={{ preserveDrawingBuffer: true, antialias: true }} camera={{ position: [6, 6, 6], fov: 30, near: .01, far: 100 }}><RenderSettings viewMode="studio" /><EditorialCoverCaptureScene pedal={pedal} stickers={stickers} signatures={signatures} onCapture={onCapture} /></Canvas></div>;
 }
+function EditorialTopCaptureScene({ pedal, stickers, signatures, onCapture }: { pedal: Pedal; stickers: UserGraphic[]; signatures: PedalMark[]; onCapture: (image: string) => void }) {
+  const root = useRef<THREE.Group>(null); const captured = useRef(false); const frames = useRef(0); const { camera, gl, scene, size } = useThree();
+  useFrame(() => {
+    if (captured.current || !root.current || ++frames.current < 12 || !(camera instanceof THREE.OrthographicCamera)) return;
+    root.current.updateWorldMatrix(true, true); const box = new THREE.Box3().setFromObject(root.current); const center = box.getCenter(new THREE.Vector3()); const bounds = box.getSize(new THREE.Vector3());
+    const aspect = size.width / size.height; const paddedWidth = bounds.x * 1.18; const paddedHeight = bounds.z * 1.18; const viewHeight = Math.max(paddedHeight, paddedWidth / aspect);
+    camera.left = -viewHeight * aspect / 2; camera.right = viewHeight * aspect / 2; camera.top = viewHeight / 2; camera.bottom = -viewHeight / 2; camera.near = .01; camera.far = 100;
+    camera.up.set(0, 0, -1); camera.position.set(center.x, box.max.y + 10, center.z); camera.lookAt(center); camera.updateProjectionMatrix(); gl.render(scene, camera);
+    captured.current = true; onCapture(gl.domElement.toDataURL('image/png'));
+  });
+  return <><color attach="background" args={['#f2f0e8']} /><ambientLight intensity={1.15} /><hemisphereLight color="#ffffff" groundColor="#d8d5ca" intensity={1.5} /><directionalLight position={[-4, 9, 5]} intensity={3.4} color="#fff8eb" /><group ref={root}><PedalModel pedal={pedal} runtimeMode="play" userGraphics={stickers} marks={signatures} shotPreset="editorial-cover-top" /></group></>;
+}
+function EditorialTopCapture({ pedal, stickers, signatures, onCapture }: { pedal: Pedal; stickers: UserGraphic[]; signatures: PedalMark[]; onCapture: (image: string) => void }) {
+  return <div className="editorial-cover-capture editorial-top-capture" aria-hidden="true"><Canvas orthographic dpr={1} gl={{ preserveDrawingBuffer: true, antialias: true }} camera={{ position: [0, 10, 0], near: .01, far: 100 }}><RenderSettings viewMode="studio" /><EditorialTopCaptureScene pedal={pedal} stickers={stickers} signatures={signatures} onCapture={onCapture} /></Canvas></div>;
+}
 function EditorialPageFrame({ page, pageNumber, hasOverflow, openingSpread = false }: { page: React.ReactNode; pageNumber: number; hasOverflow: boolean; openingSpread?: boolean }) {
   return <div className={'manual-page-shell' + (hasOverflow ? ' layout-overflow' : '') + (openingSpread ? ' opening-spread-shell' : '')} data-page-width={openingSpread ? '1440' : '720'} data-page-height="980" data-layout-status={hasOverflow ? 'autofit' : 'fit'}>{page}<span className="manual-page-number">{openingSpread ? '01—02' : String(pageNumber).padStart(2, '0')}</span></div>;
 }type PackageShotTemplate = 'open-box-standard' | 'manual-on-top' | 'pedal-lifted' | 'full-contents';
@@ -1199,7 +1214,7 @@ function PackageSetVisual({ pedal, coverImage }: { pedal: Pedal; coverImage: str
     <figcaption>{packageTemplateLabels[template]} / FIXED COMPOSITION</figcaption>
   </figure>;
 }
-function EditorialResult({ pedal, coverImage, editorialCoverImage, resultRef, resetKey, onPng, onPdf, onReforge }: { pedal: Pedal; coverImage: string; editorialCoverImage: string; resultRef: React.RefObject<HTMLElement | null>; resetKey: number; onPng: () => void; onPdf: () => void; onReforge: () => void }) {
+function EditorialResult({ pedal, coverImage, editorialCoverImage, editorialTopImage, resultRef, resetKey, onPng, onPdf, onReforge }: { pedal: Pedal; coverImage: string; editorialCoverImage: string; editorialTopImage: string; resultRef: React.RefObject<HTMLElement | null>; resetKey: number; onPng: () => void; onPdf: () => void; onReforge: () => void }) {
   const enclosureLabel = enclosureDimensions[pedal.enclosure].label;
   const ioLabel = pedal.jackLayout === 'top' ? 'TOP-MOUNTED I/O' : pedal.jackLayout === 'hybrid' ? 'SIDE OUT / TOP IN' : 'SIDE-MOUNTED I/O';
   const controlNames = [...pedal.knobs, ...(pedal.eqSliders?.map(slider => slider.label) || [])];
@@ -1223,13 +1238,11 @@ function EditorialResult({ pedal, coverImage, editorialCoverImage, resultRef, re
   useEffect(() => { const media = matchMedia('(min-width: 1100px)'); const change = (event: MediaQueryListEvent) => { setSpread(event.matches); setCurrentPage(page => event.matches ? Math.floor(page / 2) * 2 : page); }; media.addEventListener('change', change); return () => media.removeEventListener('change', change); }, []);
   useEffect(() => { if (previousPedal.current === pedal.id) return; previousPedal.current = pedal.id; setOverflowPages([]); goToPage(0); }, [pedal.id]);
   useEffect(() => { setOverflowPages([]); goToPage(0); }, [resetKey]);
-  useEffect(() => { if (!spread) return; const frame = requestAnimationFrame(() => { const overflowing = Array.from(spreadRef.current?.querySelectorAll<HTMLElement>('.manual-page') || []).flatMap((page, index) => page.scrollWidth > page.clientWidth + 2 || page.scrollHeight > page.clientHeight + 2 ? [visibleStart + index] : []); if (overflowing.length) setOverflowPages(previous => [...new Set([...previous, ...overflowing])]); }); return () => cancelAnimationFrame(frame); }, [visibleStart, spread, pedal.id, coverImage, editorialCoverImage]);
+  useEffect(() => { if (!spread) return; const frame = requestAnimationFrame(() => { const overflowing = Array.from(spreadRef.current?.querySelectorAll<HTMLElement>('.manual-page') || []).flatMap((page, index) => page.scrollWidth > page.clientWidth + 2 || page.scrollHeight > page.clientHeight + 2 ? [visibleStart + index] : []); if (overflowing.length) setOverflowPages(previous => [...new Set([...previous, ...overflowing])]); }); return () => cancelAnimationFrame(frame); }, [visibleStart, spread, pedal.id, coverImage, editorialCoverImage, editorialTopImage]);
   useEffect(() => { const keys = (event: KeyboardEvent) => { if ((event.target as HTMLElement)?.matches('input, textarea, select')) return; if (event.key === 'ArrowLeft') goToPage(visibleStart - step); if (event.key === 'ArrowRight') goToPage(visibleStart + step); }; window.addEventListener('keydown', keys); return () => window.removeEventListener('keydown', keys); }, [visibleStart, step]);
   const image = (className: string, caption: string, alt: string) => <figure className={'editorial-photo ' + className}>{coverImage ? <img src={coverImage} alt={alt} /> : <div className="cover-photo-loading">DEVELOPING PHOTOGRAPH</div>}<figcaption>{caption}</figcaption></figure>;
-  const soundKeyword = pedal.type.split(' ').slice(0, 2).join(' ');
   const maker = pedal.brand?.manufacturerName || pedal.brandLabel || 'FURNACE AUDIO WORKS';
   const warrantyDate = new Intl.DateTimeFormat('en-CA', { year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
-  const poeticLines = [`${pedal.copy}。`, `${soundKeyword}の気配が、弾いた輪郭のあとを静かに追いかける。`, `${pedal.usage}へ、まだ名前のない余韻を連れていく。`];
   const productImage = editorialCoverImage || coverImage;
   const pages = [
     <article className={pageClass(0, 'editorial-magazine-cover')} key="cover" data-shot-preset="EDITORIAL_COVER_THREE_QUARTER">
@@ -1239,14 +1252,8 @@ function EditorialResult({ pedal, coverImage, editorialCoverImage, resultRef, re
       <div className="magazine-cover-title"><p>{pedal.copy}。</p><h2>{pedal.name.replace(' // LIMITED', '')}</h2></div>
       <footer><b>PEDAL FORGE</b><span>{pedal.modelNumber || pedal.serial}</span></footer>
     </article>,
-    <article className={pageClass(1, 'editorial-character-page')} key="character">
-      <figure>{productImage ? <img src={productImage} alt={pedal.name + ' のサウンドイメージ'} /> : <div className="cover-photo-loading">DEVELOPING PHOTOGRAPH…</div>}</figure>
-      <header><p className="editorial-number">02 / CHARACTER</p><h3>THE SOUND<br />AFTER DARK.</h3></header>
-      <blockquote>{poeticLines.map(line => <span key={line}>{line}</span>)}</blockquote>
-      <div className="character-facts"><section><span>01 / SOUND</span><b>{soundKeyword}</b><p>{pedal.type}を軸に、演奏の輪郭と質感をこの一台らしいバランスへ整えます。</p></section><section><span>02 / ARCHITECTURE</span><b>{pedal.effectArchitecture || pedal.type}</b><p>{pedal.special}</p></section></div>
-    </article>,
-    <article className={pageClass(2, 'editorial-explainer-page editorial-spec-page')} key="guide">
-      <header><p className="editorial-number">03 / FORM & CONTROL</p><h3>BUILT TO<br />BE PLAYED.</h3><p>{pedal.warning}</p></header>
+    <article className={pageClass(1, 'editorial-explainer-page editorial-spec-page')} key="guide">
+      <header><p className="editorial-number">02 / FORM & CONTROL</p><h3>BUILT TO<br />BE PLAYED.</h3><p>{pedal.warning}</p></header>
       <div className="editorial-explainer-grid">
         <section><span>01 / BUILD</span><b>{enclosureLabel}</b><p>{pedal.effectArchitecture || pedal.type}の回路構成を、この筐体サイズへ収めています。</p></section>
         <section><span>02 / CONTROL</span><b>{controlLabel}</b><p>{controlCount ? controlNames.slice(0, 5).join(' / ') + 'を使って音を追い込みます。' : 'フットスイッチだけで直感的に操作できます。'}</p></section>
@@ -1254,15 +1261,20 @@ function EditorialResult({ pedal, coverImage, editorialCoverImage, resultRef, re
         <section><span>04 / PLAY</span><b>{pedal.type}</b><p>{pedal.usage}に向いたセッティングです。</p></section>
       </div>
     </article>,
+    <article className={pageClass(2, 'editorial-warranty-page')} key="warranty">
+      <div className="warranty-kicker">PEDAL FORGE / LIMITED WARRANTY</div>
+      <div className="warranty-seal" aria-hidden="true"><span>ONE</span><b>YEAR</b><small>LIMITED</small></div>
+      <header><p>CERTIFICATE OF</p><h3>WARRANTY</h3><span>This certificate confirms that the product identified below is covered by the manufacturer's limited warranty.</span></header>
+      <dl className="warranty-fields"><div><dt>EFFECT PEDAL</dt><dd>{pedal.name}</dd></div><div><dt>SERIAL NUMBER</dt><dd>{pedal.serial}</dd></div><div><dt>DATE OF ISSUE</dt><dd>{warrantyDate}</dd></div><div><dt>MANUFACTURER</dt><dd>{maker}</dd></div></dl>
+      <footer><span>AUTHORIZED AND RECORDED</span><b>{maker}</b></footer>
+    </article>,
     <article className={pageClass(3, 'editorial-share-page')} key="share">
-      <header><p className="editorial-number">04 / SHARE EDITION</p><h3>FORGED.<br />READY TO SHIP.</h3><p>このページの画像が、そのままXシェア用画像になります。</p></header>
-      <EditorialShareArtwork pedal={pedal} sourceImage={productImage} />
-      <dl><div><dt>EFFECT PEDAL</dt><dd>{pedal.name}</dd></div><div><dt>SERIAL / ISSUE</dt><dd>{pedal.serial} / {warrantyDate}</dd></div><div><dt>MANUFACTURER</dt><dd>{maker}</dd></div></dl>
+      <EditorialShareArtwork pedal={pedal} sourceImage={editorialTopImage || coverImage} />
     </article>,
   ];
   const visiblePages = pages.slice(visibleStart, visibleStart + step);
   if (spread && visiblePages.length === 1) visiblePages.push(<article className="manual-page blank-page" key="blank" aria-hidden="true" />);
-  const pageLabels = ['雑誌表紙', '音の性格', '仕様と操作', 'Xシェア'];
+  const pageLabels = ['雑誌表紙', '仕様と操作', '保証書', '天面ポートレート'];
   return <section className={`result editorial-result manual-viewer promo-${promo.layout} placement-${promo.imagePlacement} density-${promo.informationDensity}`} ref={resultRef} aria-live="polite" style={{ '--accent': pedal.palette[0], '--cover-base': pedal.palette[1], '--brand-accent': pedal.brand?.signatureColor || pedal.palette[0] } as React.CSSProperties}>
     <header className="manual-header"><div><span>04 / SHIPPED — PEDAL FORGE EDITORIAL {issue}</span><b>{pedal.name}</b></div><small>{spread ? 'DESKTOP SPREAD' : 'SINGLE PAGE'} / 4 PAGES</small></header>
     <nav className="manual-chapter-rail" aria-label="宣材ページの章">{pageLabels.map((label, index) => <button type="button" key={label} className={index >= visibleStart && index < visibleStart + step ? 'active' : ''} onClick={() => goToPage(index)}><span>{String(index + 1).padStart(2, '0')}</span><b>{label}</b></button>)}</nav>
@@ -1278,26 +1290,26 @@ const drawCoverContain = (ctx: CanvasRenderingContext2D, image: HTMLImageElement
 const drawFittedCanvasText = (ctx: CanvasRenderingContext2D, text: string, x: number, y: number, maxWidth: number, maxSize: number, minSize: number, family = 'Arial') => { let size = maxSize; do { ctx.font = `900 ${size}px ${family}`; if (ctx.measureText(text).width <= maxWidth) break; size -= 2; } while (size > minSize); ctx.fillText(text, x, y); };
 async function createSocialXShare(pedal: Pedal, sourceImage: string): Promise<Blob> {
   const canvas = document.createElement('canvas'); canvas.width = 1200; canvas.height = 675; const ctx = canvas.getContext('2d'); if (!ctx) throw new Error('CANVAS_UNAVAILABLE');
-  ctx.fillStyle = '#101510'; ctx.fillRect(0, 0, canvas.width, canvas.height); const image = sourceImage ? await loadShareImage(sourceImage).catch(() => null) : null;
-  if (image) { ctx.save(); ctx.globalAlpha = .9; drawCoverContain(ctx, image, 520, 42, 630, 590); ctx.restore(); }
-  const fade = ctx.createLinearGradient(420, 0, 760, 0); fade.addColorStop(0, '#101510'); fade.addColorStop(1, 'rgba(16,21,16,0)'); ctx.fillStyle = fade; ctx.fillRect(410, 0, 390, 675);
-  ctx.fillStyle = pedal.palette[0]; ctx.font = '900 22px monospace'; ctx.fillText('PEDAL FORGE', 64, 78); ctx.fillStyle = '#f4f5ed'; drawFittedCanvasText(ctx, pedal.name.replace(' // LIMITED', ''), 64, 322, 520, 92, 44);
-  ctx.fillStyle = '#cbd1c7'; ctx.font = '800 26px monospace'; ctx.fillText(pedal.type.toUpperCase(), 68, 378); ctx.fillStyle = pedal.palette[0]; ctx.fillRect(68, 566, 152, 9); ctx.fillStyle = '#f4f5ed'; ctx.font = '700 17px monospace'; ctx.fillText(pedal.modelNumber || pedal.serial, 68, 610);
+  ctx.fillStyle = '#f2f0e8'; ctx.fillRect(0, 0, canvas.width, canvas.height); const image = sourceImage ? await loadShareImage(sourceImage).catch(() => null) : null;
+  ctx.fillStyle = '#101510'; drawFittedCanvasText(ctx, pedal.name.replace(' // LIMITED', ''), 64, 94, 1072, 70, 38, 'Georgia');
+  if (image) drawCoverContain(ctx, image, 72, 122, 1056, 390);
+  const lines = [`${pedal.copy}。`, `${pedal.type.split(' ').slice(0, 2).join(' ')}の気配が、弾いた輪郭のあとを静かに追いかける。`, `${pedal.usage}へ、まだ名前のない余韻を連れていく。`];
+  ctx.fillStyle = '#242a23'; ctx.font = '600 20px Georgia, "Yu Mincho", serif'; lines.forEach((line, index) => ctx.fillText(line, 76, 554 + index * 32));
   return canvasBlob(canvas);
 }
 function EditorialShareArtwork({ pedal, sourceImage }: { pedal: Pedal; sourceImage: string }) {
   const [preview, setPreview] = useState('');
   useEffect(() => { let active = true; let url = ''; void createSocialXShare(pedal, sourceImage).then(blob => { if (!active) return; url = URL.createObjectURL(blob); setPreview(url); }); return () => { active = false; if (url) URL.revokeObjectURL(url); }; }, [pedal, sourceImage]);
-  return <figure className="editorial-share-artwork">{preview ? <img src={preview} alt={pedal.name + ' のXシェア画像'} /> : <div className="cover-photo-loading">GENERATING SHARE EDITION…</div>}<figcaption>1200 × 675 / X SHARE MASTER</figcaption></figure>;
+  return <figure className="editorial-share-artwork">{preview ? <img src={preview} alt={pedal.name + ' の真正面天面画像と詩的な説明'} /> : <div className="cover-photo-loading">GENERATING TOP PORTRAIT…</div>}</figure>;
 }
 function downloadShareFile(file: File) { const url = URL.createObjectURL(file); const anchor = document.createElement('a'); anchor.href = url; anchor.download = file.name; anchor.click(); window.setTimeout(() => URL.revokeObjectURL(url), 1000); }
-function SharePanel({ pedal, sourceImage, editorialCoverImage, onNotice }: { pedal: Pedal; sourceImage: string; editorialCoverImage: string; onNotice: (message: string) => void }) {
+function SharePanel({ pedal, sourceImage, editorialTopImage, onNotice }: { pedal: Pedal; sourceImage: string; editorialTopImage: string; onNotice: (message: string) => void }) {
   const effectTag = '#' + pedal.type.split(' ')[0].replace(/[^A-Za-z0-9一-龠々]/g, ''); const inputTags = (pedal.inputSources || ['guitar']).map(source => '#' + (source === 'synth-keys' ? 'Synth' : source[0].toUpperCase() + source.slice(1)).replace(/[^A-Za-z0-9]/g, ''));
   const candidates = ['#PEDALFORGE', '#エフェクター錬成', effectTag, ...inputTags].filter((tag, index, all) => tag.length > 1 && all.indexOf(tag) === index);
   const [hashtags, setHashtags] = useState(candidates.slice(0, 3)); const [customTag, setCustomTag] = useState('');
   const baseText = `PEDAL FORGEで「${pedal.name.replace(' // LIMITED', '')}」を錬成しました。\n\n${pedal.type}`; const [postText, setPostText] = useState(baseText); const [preview, setPreview] = useState(''); const [imageBlob, setImageBlob] = useState<Blob | null>(null); const [busy, setBusy] = useState(false);
-  const completeText = `${postText.trim()}\n\n${hashtags.join(' ')}`.trim(); const createBlob = () => createSocialXShare(pedal, editorialCoverImage || sourceImage);
-  useEffect(() => { let active = true; let url = ''; setBusy(true); void createBlob().then(blob => { if (!active) return; url = URL.createObjectURL(blob); setImageBlob(blob); setPreview(url); }).catch(() => { setImageBlob(null); setPreview(''); }).finally(() => { if (active) setBusy(false); }); return () => { active = false; if (url) URL.revokeObjectURL(url); }; }, [pedal, sourceImage, editorialCoverImage]);
+  const completeText = `${postText.trim()}\n\n${hashtags.join(' ')}`.trim(); const createBlob = () => createSocialXShare(pedal, editorialTopImage || sourceImage);
+  useEffect(() => { let active = true; let url = ''; setBusy(true); void createBlob().then(blob => { if (!active) return; url = URL.createObjectURL(blob); setImageBlob(blob); setPreview(url); }).catch(() => { setImageBlob(null); setPreview(''); }).finally(() => { if (active) setBusy(false); }); return () => { active = false; if (url) URL.revokeObjectURL(url); }; }, [pedal, sourceImage, editorialTopImage]);
   const makeFile = async () => new File([imageBlob || await createBlob()], `${pedal.serial}-editorial-page-4.png`, { type: 'image/png' });
   const copyText = async () => { await navigator.clipboard.writeText(completeText); onNotice('投稿文をコピーしました'); };
   const saveImage = async () => { downloadShareFile(await makeFile()); onNotice('共有画像を保存しました'); };
@@ -1318,7 +1330,7 @@ const storedFinishes = (): Record<string, PedalFinish> => { try { const current 
 const storedBrand = (): BrandProfile => { try { const value = localStorage.getItem('pedal-gacha-brand-v1'); return value ? JSON.parse(value) : createBrandProfile('first-forge-maker'); } catch { return createBrandProfile('first-forge-maker'); } };
 const similarityScore = (a: Pedal, b: Pedal) => [a.enclosure === b.enclosure, a.knobs.length === b.knobs.length, a.controlVariant === b.controlVariant, a.knobStyle === b.knobStyle, a.designArchetype === b.designArchetype, a.namingPattern === b.namingPattern, a.promoDirection?.layout === b.promoDirection?.layout, a.motifType === b.motifType, a.motifCategory === b.motifCategory, a.palette?.[1] === b.palette?.[1]].filter(Boolean).length;
 export default function App() {
-  const [brandProfile, setBrandProfile] = useState<BrandProfile>(storedBrand); const [inputSources, setInputSources] = useState<InputSource[]>([]); const [effectType, setEffectType] = useState<EffectTypeChoice>('random'); const [sound, setSound] = useState<ToneChoice>('random'); const [colorChoice, setColor] = useState<FinishChoice>('random'); const mood: MoodChoice = 'random'; const [phase, setPhase] = useState<GachaState>('idle'); const [workflow, setWorkflow] = useState<WorkflowPhase>('select'); const [forgeStep, setForgeStep] = useState('思想を選択してください'); const [pedal, setPedal] = useState<Pedal | null>(null); const [collection, setCollection] = useState<Pedal[]>(stored); const [drawer, setDrawer] = useState(false); const [notice, setNotice] = useState(''); const [reduce, setReduce] = useState(false); const [viewReset, setViewReset] = useState(0); const [manualReset, setManualReset] = useState(0); const [viewMode, setViewMode] = useState<ViewMode>('stage'); const [runtimeMode, setRuntimeMode] = useState<RuntimeMode>('off'); const [coverImage, setCoverImage] = useState(''); const [editorialCoverImage, setEditorialCoverImage] = useState(''); const [finishes, setFinishes] = useState<Record<string, PedalFinish>>(storedFinishes); const [selectedStickerId, setSelectedStickerId] = useState<string | null>(null); const [graphicError, setGraphicError] = useState(''); const [finishTool, setFinishTool] = useState<'signature' | 'sticker'>('signature'); const [markEditorOpen, setMarkEditorOpen] = useState(false); const [inspectSurface, setInspectSurface] = useState<MarkSurface>('top'); const [historyVersion, setHistoryVersion] = useState(0); const historyRef = useRef<Record<string, { past: PedalFinish[]; future: PedalFinish[] }>>({}); const canvasRef = useRef<HTMLCanvasElement | null>(null); const resultRef = useRef<HTMLElement>(null); const stageRef = useRef<HTMLElement>(null);
+  const [brandProfile, setBrandProfile] = useState<BrandProfile>(storedBrand); const [inputSources, setInputSources] = useState<InputSource[]>([]); const [effectType, setEffectType] = useState<EffectTypeChoice>('random'); const [sound, setSound] = useState<ToneChoice>('random'); const [colorChoice, setColor] = useState<FinishChoice>('random'); const mood: MoodChoice = 'random'; const [phase, setPhase] = useState<GachaState>('idle'); const [workflow, setWorkflow] = useState<WorkflowPhase>('select'); const [forgeStep, setForgeStep] = useState('思想を選択してください'); const [pedal, setPedal] = useState<Pedal | null>(null); const [collection, setCollection] = useState<Pedal[]>(stored); const [drawer, setDrawer] = useState(false); const [notice, setNotice] = useState(''); const [reduce, setReduce] = useState(false); const [viewReset, setViewReset] = useState(0); const [manualReset, setManualReset] = useState(0); const [viewMode, setViewMode] = useState<ViewMode>('stage'); const [runtimeMode, setRuntimeMode] = useState<RuntimeMode>('off'); const [coverImage, setCoverImage] = useState(''); const [editorialCoverImage, setEditorialCoverImage] = useState(''); const [editorialTopImage, setEditorialTopImage] = useState(''); const [finishes, setFinishes] = useState<Record<string, PedalFinish>>(storedFinishes); const [selectedStickerId, setSelectedStickerId] = useState<string | null>(null); const [graphicError, setGraphicError] = useState(''); const [finishTool, setFinishTool] = useState<'signature' | 'sticker'>('signature'); const [markEditorOpen, setMarkEditorOpen] = useState(false); const [inspectSurface, setInspectSurface] = useState<MarkSurface>('top'); const [historyVersion, setHistoryVersion] = useState(0); const historyRef = useRef<Record<string, { past: PedalFinish[]; future: PedalFinish[] }>>({}); const canvasRef = useRef<HTMLCanvasElement | null>(null); const resultRef = useRef<HTMLElement>(null); const stageRef = useRef<HTMLElement>(null);
   const soundEnabled = true; const [autoRotate, setAutoRotate] = useState(false);
   const forgeAudioRef = useRef<{ context: AudioContext; rumble?: { gain: GainNode; sources: AudioScheduledSourceNode[] } } | null>(null);
   const getForgeAudio = () => { if (!soundEnabled || typeof window === 'undefined') return null; let current = forgeAudioRef.current; if (!current) { current = { context: new AudioContext() }; forgeAudioRef.current = current; } if (current.context.state === 'suspended') void current.context.resume(); return current; };
@@ -1332,7 +1344,7 @@ export default function App() {
   useEffect(() => { localStorage.setItem('pedal-gacha-v2', JSON.stringify(collection)); }, [collection]);
   useEffect(() => { try { localStorage.setItem('pedal-gacha-finish-v3', JSON.stringify(finishes)); } catch { setNotice('仕上げデータを保存できません。画像サイズを小さくしてください。'); } }, [finishes]);
   useEffect(() => { localStorage.setItem('pedal-gacha-brand-v1', JSON.stringify(brandProfile)); }, [brandProfile]);
-  const commitFinish = (updater: (finish: PedalFinish) => PedalFinish) => { if (!pedal) return; setFinishes(current => { const previous = current[pedal.id] || emptyFinish(); const next = updater(previous); if (JSON.stringify(previous) === JSON.stringify(next)) return current; const history = historyRef.current[pedal.id] || { past: [], future: [] }; historyRef.current[pedal.id] = { past: [...history.past, previous].slice(-50), future: [] }; setHistoryVersion(value => value + 1); return { ...current, [pedal.id]: next }; }); setViewReset(value => value + 1); setEditorialCoverImage(''); };
+  const commitFinish = (updater: (finish: PedalFinish) => PedalFinish) => { if (!pedal) return; setFinishes(current => { const previous = current[pedal.id] || emptyFinish(); const next = updater(previous); if (JSON.stringify(previous) === JSON.stringify(next)) return current; const history = historyRef.current[pedal.id] || { past: [], future: [] }; historyRef.current[pedal.id] = { past: [...history.past, previous].slice(-50), future: [] }; setHistoryVersion(value => value + 1); return { ...current, [pedal.id]: next }; }); setViewReset(value => value + 1); setEditorialCoverImage(''); setEditorialTopImage(''); };
   const selectGraphic = (file: File, replace: boolean) => {
     setGraphicError(''); if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) return setGraphicError('PNG / JPG / WEBPを選択してください。'); if (file.size > 15 * 1024 * 1024) return setGraphicError('画像は15MB以下にしてください。');
     if (!replace && activeFinish.stickers.length >= 5) return setGraphicError('ステッカーは最大5枚です。');
@@ -1342,8 +1354,8 @@ export default function App() {
   const changeMark = (nextValue: PedalMark) => { const next = normalizeMark(nextValue, nextValue.surface); commitFinish(finish => ({ ...finish, signatures: [...finish.signatures.filter(item => item.id !== next.id && item.surface !== next.surface), next] })); setInspectSurface(next.surface); };
   const removeMark = () => commitFinish(finish => ({ ...finish, signatures: finish.signatures.filter(item => item.id !== activeMark.id) }));
   const removeGraphic = () => { if (!activeGraphic) return; commitFinish(finish => ({ ...finish, stickers: finish.stickers.filter(item => item.id !== activeGraphic.id) })); setSelectedStickerId(null); setGraphicError(''); };
-  const undoFinish = () => { if (!pedal) return; const history = historyRef.current[pedal.id]; if (!history?.past.length) return; const previous = history.past.at(-1)!; const present = finishes[pedal.id] || emptyFinish(); historyRef.current[pedal.id] = { past: history.past.slice(0, -1), future: [present, ...history.future].slice(0, 50) }; setFinishes(current => ({ ...current, [pedal.id]: previous })); setHistoryVersion(value => value + 1); setViewReset(value => value + 1); setEditorialCoverImage(''); };
-  const redoFinish = () => { if (!pedal) return; const history = historyRef.current[pedal.id]; if (!history?.future.length) return; const next = history.future[0]; const present = finishes[pedal.id] || emptyFinish(); historyRef.current[pedal.id] = { past: [...history.past, present].slice(-50), future: history.future.slice(1) }; setFinishes(current => ({ ...current, [pedal.id]: next })); setHistoryVersion(value => value + 1); setViewReset(value => value + 1); setEditorialCoverImage(''); };
+  const undoFinish = () => { if (!pedal) return; const history = historyRef.current[pedal.id]; if (!history?.past.length) return; const previous = history.past.at(-1)!; const present = finishes[pedal.id] || emptyFinish(); historyRef.current[pedal.id] = { past: history.past.slice(0, -1), future: [present, ...history.future].slice(0, 50) }; setFinishes(current => ({ ...current, [pedal.id]: previous })); setHistoryVersion(value => value + 1); setViewReset(value => value + 1); setEditorialCoverImage(''); setEditorialTopImage(''); };
+  const redoFinish = () => { if (!pedal) return; const history = historyRef.current[pedal.id]; if (!history?.future.length) return; const next = history.future[0]; const present = finishes[pedal.id] || emptyFinish(); historyRef.current[pedal.id] = { past: [...history.past, present].slice(-50), future: history.future.slice(1) }; setFinishes(current => ({ ...current, [pedal.id]: next })); setHistoryVersion(value => value + 1); setViewReset(value => value + 1); setEditorialCoverImage(''); setEditorialTopImage(''); };
   const resetFinish = () => commitFinish(() => emptyFinish());
   useEffect(() => { if (phase === 'result' && resultRef.current && !reduce) gsap.fromTo(resultRef.current, { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: .65, ease: 'power3.out' }); }, [phase, reduce]);
   useEffect(() => { if (phase !== 'result' || !pedal) return; const timer = window.setTimeout(() => { try { const image = canvasRef.current?.toDataURL('image/jpeg', .9); if (image) setCoverImage(image); } catch { setCoverImage(''); } }, reduce ? 220 : 620); return () => window.clearTimeout(timer); }, [phase, pedal, viewMode, runtimeMode, viewReset, reduce]);
@@ -1365,7 +1377,7 @@ export default function App() {
       standard = generate(input);
     }
     const p = standard;
-    setPedal(p); setSelectedStickerId(null); setGraphicError(''); setCoverImage(''); setEditorialCoverImage(''); setViewMode('stage'); setRuntimeMode('off'); setInspectSurface('top'); setMarkEditorOpen(false); setAutoRotate(false); setWorkflow('forging'); setForgeStep('音の性質を抽出中'); startForgeRumble(); setPhase('cranking');
+    setPedal(p); setSelectedStickerId(null); setGraphicError(''); setCoverImage(''); setEditorialCoverImage(''); setEditorialTopImage(''); setViewMode('stage'); setRuntimeMode('off'); setInspectSurface('top'); setMarkEditorOpen(false); setAutoRotate(false); setWorkflow('forging'); setForgeStep('音の性質を抽出中'); startForgeRumble(); setPhase('cranking');
     requestAnimationFrame(() => stageRef.current?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' }));
     const complete = () => { stopForgeRumble(.12); playForgeComplete(); setForgeStep('錬成完了'); setRuntimeMode('play'); setPhase('result'); setWorkflow('forged'); setCollection(current => current.some(item => item.id === p.id) ? current : [p, ...current].slice(0, 24)); };
     if (reduce) return void window.setTimeout(complete, 160);
@@ -1455,10 +1467,11 @@ export default function App() {
         <article className={workflow === 'shipping' || workflow === 'shipped' ? 'workflow-card active shipping-card' : 'workflow-card shipping-card'}><div className="workflow-location"><span>04 / SHIP</span><b>出荷</b></div><h2>パッケージングしていこう。</h2><p>出荷時点の3D、署名、ステッカー、ブランド情報から宣材4ページを作成し、4ページ目をXシェア画像に使用します。</p><button type="button" onClick={ship} disabled={workflow === 'shipping'}>{workflow === 'shipping' ? '出荷準備中…' : workflow === 'shipped' ? '現在の状態で再出荷' : 'この一台を出荷する'}</button></article>
       </div>
     </section>}
-    {phase === 'result' && pedal && !editorialCoverImage && <EditorialCoverCapture key={`${pedal.id}-${viewReset}`} pedal={pedal} stickers={activeFinish.stickers} signatures={activeFinish.signatures} onCapture={setEditorialCoverImage} />}
-    {phase === 'result' && pedal && workflow === 'shipped' && <EditorialResult pedal={pedal} coverImage={coverImage} editorialCoverImage={editorialCoverImage} resultRef={resultRef} resetKey={manualReset} onPng={png} onPdf={pdf} onReforge={run} />}
-    {phase === 'result' && pedal && workflow === 'shipped' && <SharePanel pedal={pedal} sourceImage={coverImage} editorialCoverImage={editorialCoverImage} onNotice={setNotice} />}
-    {drawer && <div className="drawer-backdrop" role="presentation" onMouseDown={() => setDrawer(false)}><aside className="drawer" role="dialog" aria-modal="true" aria-label="錬成済みペダル保管庫" onMouseDown={e => e.stopPropagation()}><button className="close" onClick={() => setDrawer(false)} aria-label="保管庫を閉じる">×</button><p className="eyebrow">FORGED ARCHIVE</p><h2>FORGED PEDALS</h2>{collection.length ? <div className="cards">{collection.map(p => <button key={p.id} onClick={() => { setPedal(p); setForgeStep('錬成完了'); setPhase('result'); setWorkflow('forged'); setViewMode('stage'); setRuntimeMode('play'); setInspectSurface('top'); setMarkEditorOpen(false); setSelectedStickerId(null); setEditorialCoverImage(''); setDrawer(false); }}><span style={{ background: p.palette[0] }} /><b>{p.name}</b><small>{p.brand?.manufacturerName || p.brandLabel || 'FURNACE AUDIO WORKS'} / {p.modelNumber || p.serial}</small></button>)}</div> : <p className="empty">まだ錬成された個体はありません。</p>}</aside></div>}
+    {phase === 'result' && pedal && !editorialCoverImage && <EditorialCoverCapture key={`cover-${pedal.id}-${viewReset}`} pedal={pedal} stickers={activeFinish.stickers} signatures={activeFinish.signatures} onCapture={setEditorialCoverImage} />}
+    {phase === 'result' && pedal && !editorialTopImage && <EditorialTopCapture key={`top-${pedal.id}-${viewReset}`} pedal={pedal} stickers={activeFinish.stickers} signatures={activeFinish.signatures} onCapture={setEditorialTopImage} />}
+    {phase === 'result' && pedal && workflow === 'shipped' && <EditorialResult pedal={pedal} coverImage={coverImage} editorialCoverImage={editorialCoverImage} editorialTopImage={editorialTopImage} resultRef={resultRef} resetKey={manualReset} onPng={png} onPdf={pdf} onReforge={run} />}
+    {phase === 'result' && pedal && workflow === 'shipped' && <SharePanel pedal={pedal} sourceImage={coverImage} editorialTopImage={editorialTopImage} onNotice={setNotice} />}
+    {drawer && <div className="drawer-backdrop" role="presentation" onMouseDown={() => setDrawer(false)}><aside className="drawer" role="dialog" aria-modal="true" aria-label="錬成済みペダル保管庫" onMouseDown={e => e.stopPropagation()}><button className="close" onClick={() => setDrawer(false)} aria-label="保管庫を閉じる">×</button><p className="eyebrow">FORGED ARCHIVE</p><h2>FORGED PEDALS</h2>{collection.length ? <div className="cards">{collection.map(p => <button key={p.id} onClick={() => { setPedal(p); setForgeStep('錬成完了'); setPhase('result'); setWorkflow('forged'); setViewMode('stage'); setRuntimeMode('play'); setInspectSurface('top'); setMarkEditorOpen(false); setSelectedStickerId(null); setEditorialCoverImage(''); setEditorialTopImage(''); setDrawer(false); }}><span style={{ background: p.palette[0] }} /><b>{p.name}</b><small>{p.brand?.manufacturerName || p.brandLabel || 'FURNACE AUDIO WORKS'} / {p.modelNumber || p.serial}</small></button>)}</div> : <p className="empty">まだ錬成された個体はありません。</p>}</aside></div>}
     {notice && <button className="toast" onAnimationEnd={() => setNotice('')}>{notice}</button>}<footer>NO CLOUD. NO ACCOUNT. FORGED UNITS STAY IN THIS BROWSER.</footer>
   </main>;
 }
