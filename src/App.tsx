@@ -63,7 +63,6 @@ type MarkSurface = 'top' | 'left-side' | 'right-side' | 'back';
 type PedalMark = { id: string; enabled: boolean; text: string; surface: MarkSurface; u: number; v: number; size: number; rotation: number; font: SignatureFontCategory; color: string; style: 'print' | 'stamp' | 'engraved' | 'etched' | 'paint-marker' | 'decal' | 'embossed' };
 type PedalFinish = { signatures: PedalMark[]; stickers: UserGraphic[] };
 type ShotPresetId = 'hero' | 'three-quarter' | 'control' | 'editorial-cover-top' | 'social-x';
-type ShareImageType = 'hero' | 'stage' | 'studio' | 'editorial-cover' | 'open-box' | 'full-kit' | 'social-x';
 type CustomGraphicMeta = { sourceName: string; treatment: string; placement: string; preservation: string };
 type Pedal = {
   id: string; seed: string; owner: string; instrument: Instrument; inputSources?: InputSource[]; signalProfile?: SignalProfile; ioChannels?: 'mono' | 'stereo'; effectType: EffectTypeChoice; sound: Choice; mood: Mood;
@@ -1163,11 +1162,10 @@ function indicatorSummary(pedal: Pedal) {
 function EditorialCoverCaptureScene({ pedal, stickers, signatures, onCapture }: { pedal: Pedal; stickers: UserGraphic[]; signatures: PedalMark[]; onCapture: (image: string) => void }) {
   const root = useRef<THREE.Group>(null); const captured = useRef(false); const frames = useRef(0); const { camera, gl, scene, size } = useThree();
   useFrame(() => {
-    if (captured.current || !root.current || ++frames.current < 12 || !(camera instanceof THREE.OrthographicCamera)) return;
+    if (captured.current || !root.current || ++frames.current < 12 || !(camera instanceof THREE.PerspectiveCamera)) return;
     root.current.updateWorldMatrix(true, true); const box = new THREE.Box3().setFromObject(root.current); const center = box.getCenter(new THREE.Vector3()); const bounds = box.getSize(new THREE.Vector3());
-    const aspect = size.width / size.height; const paddedWidth = bounds.x * 1.2; const paddedHeight = bounds.z * 1.2; const viewHeight = Math.max(paddedHeight, paddedWidth / aspect);
-    camera.left = -viewHeight * aspect / 2; camera.right = viewHeight * aspect / 2; camera.top = viewHeight / 2; camera.bottom = -viewHeight / 2; camera.near = .01; camera.far = 100;
-    camera.up.set(0, 0, -1); camera.position.set(center.x, box.max.y + 10, center.z); camera.lookAt(center); camera.updateProjectionMatrix(); gl.render(scene, camera);
+    const extent = Math.max(bounds.x, bounds.z); camera.aspect = size.width / size.height; camera.fov = 30; camera.near = .01; camera.far = 100;
+    camera.up.set(0, 1, 0); camera.position.set(center.x + extent * .72, box.max.y + extent * .82, center.z + extent * 1.08); camera.lookAt(center.x, center.y + .12, center.z); camera.updateProjectionMatrix(); gl.render(scene, camera);
     captured.current = true; onCapture(gl.domElement.toDataURL('image/png'));
   });
   return <>
@@ -1176,7 +1174,7 @@ function EditorialCoverCaptureScene({ pedal, stickers, signatures, onCapture }: 
   </>;
 }
 function EditorialCoverCapture({ pedal, stickers, signatures, onCapture }: { pedal: Pedal; stickers: UserGraphic[]; signatures: PedalMark[]; onCapture: (image: string) => void }) {
-  return <div className="editorial-cover-capture" aria-hidden="true"><Canvas orthographic dpr={1} gl={{ preserveDrawingBuffer: true, antialias: true }} camera={{ position: [0, 10, 0], near: .01, far: 100 }}><RenderSettings viewMode="studio" /><EditorialCoverCaptureScene pedal={pedal} stickers={stickers} signatures={signatures} onCapture={onCapture} /></Canvas></div>;
+  return <div className="editorial-cover-capture" aria-hidden="true"><Canvas dpr={1} gl={{ preserveDrawingBuffer: true, antialias: true }} camera={{ position: [6, 6, 6], fov: 30, near: .01, far: 100 }}><RenderSettings viewMode="studio" /><EditorialCoverCaptureScene pedal={pedal} stickers={stickers} signatures={signatures} onCapture={onCapture} /></Canvas></div>;
 }
 function EditorialPageFrame({ page, pageNumber, hasOverflow, openingSpread = false }: { page: React.ReactNode; pageNumber: number; hasOverflow: boolean; openingSpread?: boolean }) {
   return <div className={'manual-page-shell' + (hasOverflow ? ' layout-overflow' : '') + (openingSpread ? ' opening-spread-shell' : '')} data-page-width={openingSpread ? '1440' : '720'} data-page-height="980" data-layout-status={hasOverflow ? 'autofit' : 'fit'}>{page}<span className="manual-page-number">{openingSpread ? '01—02' : String(pageNumber).padStart(2, '0')}</span></div>;
@@ -1218,7 +1216,7 @@ function EditorialResult({ pedal, coverImage, editorialCoverImage, resultRef, re
   const swipeStart = useRef<number | null>(null);
   const spreadRef = useRef<HTMLDivElement>(null);
   const previousPedal = useRef(pedal.id);
-  const totalPages = 3;
+  const totalPages = 4;
   const visibleStart = spread ? Math.floor(currentPage / 2) * 2 : currentPage;
   const step = spread ? 2 : 1;
   const goToPage = (page: number) => { const next = Math.max(0, Math.min(totalPages - 1, page)); setCurrentPage(next); setPageListOpen(false); if (typeof history !== 'undefined') history.replaceState(null, '', `${location.pathname}${location.search}#editorial-${next + 1}`); };
@@ -1231,39 +1229,42 @@ function EditorialResult({ pedal, coverImage, editorialCoverImage, resultRef, re
   const soundKeyword = pedal.type.split(' ').slice(0, 2).join(' ');
   const maker = pedal.brand?.manufacturerName || pedal.brandLabel || 'FURNACE AUDIO WORKS';
   const warrantyDate = new Intl.DateTimeFormat('en-CA', { year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+  const poeticLines = [`${pedal.copy}。`, `${soundKeyword}の気配が、弾いた輪郭のあとを静かに追いかける。`, `${pedal.usage}へ、まだ名前のない余韻を連れていく。`];
+  const productImage = editorialCoverImage || coverImage;
   const pages = [
-    <article className={pageClass(0, 'editorial-cover-top-page')} key="cover" data-shot-preset="EDITORIAL_COVER_TOP">
-      <header><span>01 / FORGED UNIT</span><h2>{pedal.name}</h2><p>{pedal.copy}。</p></header>
-      <figure className="editorial-cover-top-photo">{editorialCoverImage ? <img src={editorialCoverImage} alt={pedal.name + ' の上面全体写真'} /> : <div className="cover-photo-loading">DEVELOPING EDITORIAL COVER TOP…</div>}</figure>
-      <footer><b>{pedal.type}</b><span>{pedal.modelNumber || pedal.serial}</span></footer>
+    <article className={pageClass(0, 'editorial-magazine-cover')} key="cover" data-shot-preset="EDITORIAL_COVER_THREE_QUARTER">
+      <figure>{productImage ? <img src={productImage} alt={pedal.name + ' の斜め上面写真'} /> : <div className="cover-photo-loading">DEVELOPING COVER PHOTOGRAPH…</div>}</figure>
+      <header><span>THE</span><b>EFFECTOR</b><small>FORGED SOUND / ISSUE {issue}</small></header>
+      <aside><span>ONE OF ONE</span><p>{pedal.type} / {maker}</p></aside>
+      <div className="magazine-cover-title"><p>{pedal.copy}。</p><h2>{pedal.name.replace(' // LIMITED', '')}</h2></div>
+      <footer><b>PEDAL FORGE</b><span>{pedal.modelNumber || pedal.serial}</span></footer>
     </article>,
-    <article className={pageClass(1, 'editorial-explainer-page')} key="guide">
-      <header><p className="editorial-number">02 / QUICK GUIDE</p><h3>ABOUT<br />THIS PEDAL.</h3><p>{pedal.copy}。</p></header>
+    <article className={pageClass(1, 'editorial-character-page')} key="character">
+      <figure>{productImage ? <img src={productImage} alt={pedal.name + ' のサウンドイメージ'} /> : <div className="cover-photo-loading">DEVELOPING PHOTOGRAPH…</div>}</figure>
+      <header><p className="editorial-number">02 / CHARACTER</p><h3>THE SOUND<br />AFTER DARK.</h3></header>
+      <blockquote>{poeticLines.map(line => <span key={line}>{line}</span>)}</blockquote>
+      <div className="character-facts"><section><span>01 / SOUND</span><b>{soundKeyword}</b><p>{pedal.type}を軸に、演奏の輪郭と質感をこの一台らしいバランスへ整えます。</p></section><section><span>02 / ARCHITECTURE</span><b>{pedal.effectArchitecture || pedal.type}</b><p>{pedal.special}</p></section></div>
+    </article>,
+    <article className={pageClass(2, 'editorial-explainer-page editorial-spec-page')} key="guide">
+      <header><p className="editorial-number">03 / FORM & CONTROL</p><h3>BUILT TO<br />BE PLAYED.</h3><p>{pedal.warning}</p></header>
       <div className="editorial-explainer-grid">
-        <section><span>01 / SOUND</span><b>{soundKeyword}</b><p>{pedal.type}を軸に、演奏の輪郭と質感をこの一台らしいバランスへ整えます。</p></section>
-        <section><span>02 / BUILD</span><b>{enclosureLabel}</b><p>{pedal.effectArchitecture || pedal.type}の回路構成を、この筐体サイズへ収めています。</p></section>
-        <section><span>03 / CONTROL</span><b>{controlLabel}</b><p>{controlCount ? controlNames.slice(0, 5).join(' / ') + 'を使って音を追い込みます。' : 'フットスイッチだけで直感的に操作できます。'}</p></section>
+        <section><span>01 / BUILD</span><b>{enclosureLabel}</b><p>{pedal.effectArchitecture || pedal.type}の回路構成を、この筐体サイズへ収めています。</p></section>
+        <section><span>02 / CONTROL</span><b>{controlLabel}</b><p>{controlCount ? controlNames.slice(0, 5).join(' / ') + 'を使って音を追い込みます。' : 'フットスイッチだけで直感的に操作できます。'}</p></section>
+        <section><span>03 / I/O</span><b>{ioLabel}</b><p>{(pedal.ioChannels || 'mono').toUpperCase()} / {pedal.power}</p></section>
         <section><span>04 / PLAY</span><b>{pedal.type}</b><p>{pedal.usage}に向いたセッティングです。</p></section>
       </div>
     </article>,
-    <article className={pageClass(2, 'editorial-warranty-page')} key="warranty">
-      <div className="warranty-kicker">PEDAL FORGE / LIMITED WARRANTY</div>
-      <div className="warranty-seal" aria-hidden="true"><span>ONE</span><b>YEAR</b><small>LIMITED</small></div>
-      <header><p>CERTIFICATE OF</p><h3>WARRANTY</h3><span>This certificate confirms that the product identified below is covered by the manufacturer's limited warranty.</span></header>
-      <dl className="warranty-fields">
-        <div><dt>EFFECT PEDAL</dt><dd>{pedal.name}</dd></div>
-        <div><dt>SERIAL NUMBER</dt><dd>{pedal.serial}</dd></div>
-        <div><dt>DATE OF ISSUE</dt><dd>{warrantyDate}</dd></div>
-        <div><dt>MANUFACTURER</dt><dd>{maker}</dd></div>
-      </dl>
-      <footer><span>AUTHORIZED AND RECORDED</span><b>{maker}</b></footer>
+    <article className={pageClass(3, 'editorial-share-page')} key="share">
+      <header><p className="editorial-number">04 / SHARE EDITION</p><h3>FORGED.<br />READY TO SHIP.</h3><p>このページの画像が、そのままXシェア用画像になります。</p></header>
+      <EditorialShareArtwork pedal={pedal} sourceImage={productImage} />
+      <dl><div><dt>EFFECT PEDAL</dt><dd>{pedal.name}</dd></div><div><dt>SERIAL / ISSUE</dt><dd>{pedal.serial} / {warrantyDate}</dd></div><div><dt>MANUFACTURER</dt><dd>{maker}</dd></div></dl>
     </article>,
   ];
   const visiblePages = pages.slice(visibleStart, visibleStart + step);
   if (spread && visiblePages.length === 1) visiblePages.push(<article className="manual-page blank-page" key="blank" aria-hidden="true" />);
-  const pageLabels = ['表紙', '簡単な解説', '保証書'];
+  const pageLabels = ['雑誌表紙', '音の性格', '仕様と操作', 'Xシェア'];
   return <section className={`result editorial-result manual-viewer promo-${promo.layout} placement-${promo.imagePlacement} density-${promo.informationDensity}`} ref={resultRef} aria-live="polite" style={{ '--accent': pedal.palette[0], '--cover-base': pedal.palette[1], '--brand-accent': pedal.brand?.signatureColor || pedal.palette[0] } as React.CSSProperties}>
-    <header className="manual-header"><div><span>04 / SHIPPED — PEDAL FORGE EDITORIAL {issue}</span><b>{pedal.name}</b></div><small>{spread ? 'DESKTOP SPREAD' : 'SINGLE PAGE'} / 3 PAGES</small></header>
+    <header className="manual-header"><div><span>04 / SHIPPED — PEDAL FORGE EDITORIAL {issue}</span><b>{pedal.name}</b></div><small>{spread ? 'DESKTOP SPREAD' : 'SINGLE PAGE'} / 4 PAGES</small></header>
     <nav className="manual-chapter-rail" aria-label="宣材ページの章">{pageLabels.map((label, index) => <button type="button" key={label} className={index >= visibleStart && index < visibleStart + step ? 'active' : ''} onClick={() => goToPage(index)}><span>{String(index + 1).padStart(2, '0')}</span><b>{label}</b></button>)}</nav>
     <div ref={spreadRef} className={'manual-spread ' + (spread ? 'is-spread' : 'is-single')} onTouchStart={event => { swipeStart.current = event.touches[0].clientX; }} onTouchEnd={event => { if (swipeStart.current == null) return; const delta = event.changedTouches[0].clientX - swipeStart.current; if (Math.abs(delta) > 54) goToPage(visibleStart + (delta < 0 ? step : -step)); swipeStart.current = null; }}>{visiblePages.map((page, index) => <EditorialPageFrame key={visibleStart + index} page={page} pageNumber={visibleStart + index + 1} hasOverflow={overflowPages.includes(visibleStart + index)} />)}</div>
     <nav className="manual-pagination" aria-label="宣材ページ送り"><button type="button" onClick={() => goToPage(visibleStart - step)} disabled={visibleStart === 0} aria-label="前のページ">←</button><button type="button" className="page-index-button" onClick={() => setPageListOpen(open => !open)} aria-expanded={pageListOpen}>{spread ? `${visibleStart + 1}–${Math.min(totalPages, visibleStart + 2)} / ${totalPages}` : `${visibleStart + 1} / ${totalPages}`}</button><button type="button" onClick={() => goToPage(visibleStart + step)} disabled={visibleStart + step >= totalPages} aria-label="次のページ">→</button>{pageListOpen && <div className="manual-page-list">{pageLabels.map((label, index) => <button type="button" key={label} className={index >= visibleStart && index < visibleStart + step ? 'active' : ''} onClick={() => goToPage(index)}><span>{String(index + 1).padStart(2, '0')}</span>{label}</button>)}</div>}</nav>
@@ -1273,24 +1274,8 @@ function EditorialResult({ pedal, coverImage, editorialCoverImage, resultRef, re
 }
 const loadShareImage = (url: string) => new Promise<HTMLImageElement>((resolve, reject) => { const image = new Image(); image.onload = () => resolve(image); image.onerror = reject; image.src = url; });
 const canvasBlob = (canvas: HTMLCanvasElement) => new Promise<Blob>((resolve, reject) => canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('PNG_ENCODE_FAILED')), 'image/png'));
-const drawCoverCrop = (ctx: CanvasRenderingContext2D, image: HTMLImageElement, width: number, height: number) => { const scale = Math.max(width / image.width, height / image.height); const drawWidth = image.width * scale; const drawHeight = image.height * scale; ctx.drawImage(image, (width - drawWidth) / 2, (height - drawHeight) / 2, drawWidth, drawHeight); };
 const drawCoverContain = (ctx: CanvasRenderingContext2D, image: HTMLImageElement, x: number, y: number, width: number, height: number) => { const scale = Math.min(width / image.width, height / image.height); const drawWidth = image.width * scale; const drawHeight = image.height * scale; ctx.drawImage(image, x + (width - drawWidth) / 2, y + (height - drawHeight) / 2, drawWidth, drawHeight); };
 const drawFittedCanvasText = (ctx: CanvasRenderingContext2D, text: string, x: number, y: number, maxWidth: number, maxSize: number, minSize: number, family = 'Arial') => { let size = maxSize; do { ctx.font = `900 ${size}px ${family}`; if (ctx.measureText(text).width <= maxWidth) break; size -= 2; } while (size > minSize); ctx.fillText(text, x, y); };
-const drawWrappedCanvasText = (ctx: CanvasRenderingContext2D, text: string, x: number, y: number, maxWidth: number, lineHeight: number, maxLines: number) => { const chars = [...text]; let line = ''; let lineIndex = 0; for (const char of chars) { const next = line + char; if (ctx.measureText(next).width > maxWidth && line) { ctx.fillText(line, x, y + lineIndex * lineHeight); line = char; lineIndex += 1; if (lineIndex >= maxLines) return; } else line = next; } if (line && lineIndex < maxLines) ctx.fillText(line, x, y + lineIndex * lineHeight); };
-async function createEditorialCoverShare(pedal: Pedal, sourceImage: string): Promise<Blob> {
-  const canvas = document.createElement('canvas'); canvas.width = 720; canvas.height = 980;
-  const ctx = canvas.getContext('2d'); if (!ctx) throw new Error('CANVAS_UNAVAILABLE');
-  ctx.fillStyle = '#f2f0e8'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-  const image = sourceImage ? await loadShareImage(sourceImage).catch(() => null) : null;
-  const maker = pedal.brand?.manufacturerName || pedal.brandLabel || 'FURNACE AUDIO WORKS';
-  ctx.fillStyle = '#4f584e'; ctx.font = '800 15px monospace'; ctx.fillText('01 / FORGED UNIT', 52, 62); ctx.textAlign = 'right'; ctx.fillText(maker.toUpperCase(), 668, 62); ctx.textAlign = 'left';
-  ctx.fillStyle = '#101510'; drawFittedCanvasText(ctx, pedal.name.replace(' // LIMITED', ''), 52, 142, 616, 68, 34);
-  ctx.font = '600 19px Georgia, serif'; drawWrappedCanvasText(ctx, pedal.copy + '。', 54, 184, 590, 28, 2);
-  if (image) drawCoverContain(ctx, image, 58, 235, 604, 610);
-  ctx.strokeStyle = '#c4c7bc'; ctx.strokeRect(58, 235, 604, 610); ctx.fillStyle = pedal.palette[0]; ctx.fillRect(52, 894, 120, 7);
-  ctx.fillStyle = '#101510'; ctx.font = '900 18px monospace'; ctx.fillText(pedal.type.toUpperCase(), 52, 938); ctx.textAlign = 'right'; ctx.fillText(pedal.modelNumber || pedal.serial, 668, 938); ctx.textAlign = 'left';
-  return canvasBlob(canvas);
-}
 async function createSocialXShare(pedal: Pedal, sourceImage: string): Promise<Blob> {
   const canvas = document.createElement('canvas'); canvas.width = 1200; canvas.height = 675; const ctx = canvas.getContext('2d'); if (!ctx) throw new Error('CANVAS_UNAVAILABLE');
   ctx.fillStyle = '#101510'; ctx.fillRect(0, 0, canvas.width, canvas.height); const image = sourceImage ? await loadShareImage(sourceImage).catch(() => null) : null;
@@ -1300,23 +1285,27 @@ async function createSocialXShare(pedal: Pedal, sourceImage: string): Promise<Bl
   ctx.fillStyle = '#cbd1c7'; ctx.font = '800 26px monospace'; ctx.fillText(pedal.type.toUpperCase(), 68, 378); ctx.fillStyle = pedal.palette[0]; ctx.fillRect(68, 566, 152, 9); ctx.fillStyle = '#f4f5ed'; ctx.font = '700 17px monospace'; ctx.fillText(pedal.modelNumber || pedal.serial, 68, 610);
   return canvasBlob(canvas);
 }
+function EditorialShareArtwork({ pedal, sourceImage }: { pedal: Pedal; sourceImage: string }) {
+  const [preview, setPreview] = useState('');
+  useEffect(() => { let active = true; let url = ''; void createSocialXShare(pedal, sourceImage).then(blob => { if (!active) return; url = URL.createObjectURL(blob); setPreview(url); }); return () => { active = false; if (url) URL.revokeObjectURL(url); }; }, [pedal, sourceImage]);
+  return <figure className="editorial-share-artwork">{preview ? <img src={preview} alt={pedal.name + ' のXシェア画像'} /> : <div className="cover-photo-loading">GENERATING SHARE EDITION…</div>}<figcaption>1200 × 675 / X SHARE MASTER</figcaption></figure>;
+}
 function downloadShareFile(file: File) { const url = URL.createObjectURL(file); const anchor = document.createElement('a'); anchor.href = url; anchor.download = file.name; anchor.click(); window.setTimeout(() => URL.revokeObjectURL(url), 1000); }
 function SharePanel({ pedal, sourceImage, editorialCoverImage, onNotice }: { pedal: Pedal; sourceImage: string; editorialCoverImage: string; onNotice: (message: string) => void }) {
   const effectTag = '#' + pedal.type.split(' ')[0].replace(/[^A-Za-z0-9一-龠々]/g, ''); const inputTags = (pedal.inputSources || ['guitar']).map(source => '#' + (source === 'synth-keys' ? 'Synth' : source[0].toUpperCase() + source.slice(1)).replace(/[^A-Za-z0-9]/g, ''));
   const candidates = ['#PEDALFORGE', '#エフェクター錬成', effectTag, ...inputTags].filter((tag, index, all) => tag.length > 1 && all.indexOf(tag) === index);
-  const [selectedImage, setSelectedImage] = useState<ShareImageType>('social-x'); const [hashtags, setHashtags] = useState(candidates.slice(0, 3)); const [customTag, setCustomTag] = useState('');
+  const [hashtags, setHashtags] = useState(candidates.slice(0, 3)); const [customTag, setCustomTag] = useState('');
   const baseText = `PEDAL FORGEで「${pedal.name.replace(' // LIMITED', '')}」を錬成しました。\n\n${pedal.type}`; const [postText, setPostText] = useState(baseText); const [preview, setPreview] = useState(''); const [imageBlob, setImageBlob] = useState<Blob | null>(null); const [busy, setBusy] = useState(false);
-  const completeText = `${postText.trim()}\n\n${hashtags.join(' ')}`.trim(); const createBlob = () => selectedImage === 'social-x' ? createSocialXShare(pedal, editorialCoverImage || sourceImage) : selectedImage === 'editorial-cover' ? createEditorialCoverShare(pedal, editorialCoverImage || sourceImage) : createSocialXShare(pedal, sourceImage || editorialCoverImage);
-  useEffect(() => { let active = true; let url = ''; setBusy(true); void createBlob().then(blob => { if (!active) return; url = URL.createObjectURL(blob); setImageBlob(blob); setPreview(url); }).catch(() => { setImageBlob(null); setPreview(''); }).finally(() => { if (active) setBusy(false); }); return () => { active = false; if (url) URL.revokeObjectURL(url); }; }, [selectedImage, pedal, sourceImage, editorialCoverImage]);
-  const makeFile = async () => new File([imageBlob || await createBlob()], `${pedal.serial}-${selectedImage}.png`, { type: 'image/png' });
+  const completeText = `${postText.trim()}\n\n${hashtags.join(' ')}`.trim(); const createBlob = () => createSocialXShare(pedal, editorialCoverImage || sourceImage);
+  useEffect(() => { let active = true; let url = ''; setBusy(true); void createBlob().then(blob => { if (!active) return; url = URL.createObjectURL(blob); setImageBlob(blob); setPreview(url); }).catch(() => { setImageBlob(null); setPreview(''); }).finally(() => { if (active) setBusy(false); }); return () => { active = false; if (url) URL.revokeObjectURL(url); }; }, [pedal, sourceImage, editorialCoverImage]);
+  const makeFile = async () => new File([imageBlob || await createBlob()], `${pedal.serial}-editorial-page-4.png`, { type: 'image/png' });
   const copyText = async () => { await navigator.clipboard.writeText(completeText); onNotice('投稿文をコピーしました'); };
   const saveImage = async () => { downloadShareFile(await makeFile()); onNotice('共有画像を保存しました'); };
   const copyImage = async () => { try { if (typeof ClipboardItem === 'undefined' || !navigator.clipboard?.write) throw new Error('UNSUPPORTED'); const blob = imageBlob || await createBlob(); await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]); onNotice('画像をクリップボードへコピーしました'); } catch { await saveImage(); onNotice('画像コピー非対応のためPNGを保存しました'); } };
   const openX = async () => { setBusy(true); try { try { await navigator.clipboard.writeText(completeText); } catch { /* X intent still carries the text */ } try { await copyImage(); } catch { await saveImage(); } const url = new URL('https://x.com/intent/post'); url.searchParams.set('text', completeText); window.open(url.toString(), '_blank', 'noopener,noreferrer'); onNotice('投稿文をコピーしました。生成画像を添付して投稿してください。'); } finally { setBusy(false); } };
-  const imageChoices: [ShareImageType, string][] = [['hero', 'HERO'], ['stage', 'STAGE'], ['studio', 'STUDIO'], ['editorial-cover', 'EDITORIAL COVER'], ['open-box', 'OPEN BOX'], ['full-kit', 'FULL KIT'], ['social-x', 'SOCIAL X']];
   return <section className="share-panel share-final-workbench" aria-labelledby="share-title">
     <header className="share-hero-copy"><span>SHARE / FINAL</span><h2 id="share-title">この一台を、<br />外へ送り出す。</h2></header>
-    <div className="share-workbench"><div><div className="share-preview">{preview ? <img src={preview} alt="X共有画像プレビュー" /> : <span>GENERATING SOCIAL IMAGE…</span>}</div><nav className="share-image-picker" aria-label="共有画像">{imageChoices.map(([id, label]) => <button type="button" key={id} className={selectedImage === id ? 'active' : ''} onClick={() => setSelectedImage(id)}>{label}</button>)}</nav></div>
+    <div className="share-workbench"><div><div className="share-preview">{preview ? <img src={preview} alt="宣材4ページ目と共通のX共有画像プレビュー" /> : <span>GENERATING PAGE 4 IMAGE…</span>}</div><p className="share-page-source">EDITORIAL PAGE 04 / X SHARE MASTER</p></div>
       <div className="share-compose"><label>POST<textarea value={postText} maxLength={240} onChange={event => setPostText(event.target.value)} /></label><output>{completeText.length} / 280</output><div className="hashtag-picker"><span>HASHTAGS</span>{candidates.map(tag => <button type="button" key={tag} className={hashtags.includes(tag) ? 'active' : ''} onClick={() => setHashtags(current => current.includes(tag) ? current.filter(item => item !== tag) : [...current, tag].slice(0, 5))}>{tag}</button>)}<form onSubmit={event => { event.preventDefault(); const tag = '#' + customTag.trim().replace(/^#/, '').replace(/\s+/g, ''); if (tag.length > 1 && !hashtags.includes(tag)) setHashtags(current => [...current, tag].slice(0, 5)); setCustomTag(''); }}><input value={customTag} onChange={event => setCustomTag(event.target.value)} placeholder="CUSTOM TAG" /><button type="submit">＋追加</button></form></div><button type="button" className="share-primary" onClick={openX} disabled={busy}>Xで投稿画面を開く →</button><div className="share-secondary"><button type="button" onClick={saveImage}>画像を保存</button><button type="button" onClick={copyImage}>画像をコピー</button><button type="button" onClick={copyText}>投稿文をコピー</button></div></div></div>
   </section>;
 }
@@ -1463,7 +1452,7 @@ export default function App() {
     </section>
     {phase === 'result' && pedal && <section className={'post-forge-flow workflow-' + workflow}>
       <div className="finish-shipping-grid shipping-only">
-        <article className={workflow === 'shipping' || workflow === 'shipped' ? 'workflow-card active shipping-card' : 'workflow-card shipping-card'}><div className="workflow-location"><span>04 / SHIP</span><b>出荷</b></div><h2>パッケージングしていこう。</h2><p>出荷時点の3D、署名、ステッカー、ブランド情報から宣材3ページとXシェア画像を作成します。</p><button type="button" onClick={ship} disabled={workflow === 'shipping'}>{workflow === 'shipping' ? '出荷準備中…' : workflow === 'shipped' ? '現在の状態で再出荷' : 'この一台を出荷する'}</button></article>
+        <article className={workflow === 'shipping' || workflow === 'shipped' ? 'workflow-card active shipping-card' : 'workflow-card shipping-card'}><div className="workflow-location"><span>04 / SHIP</span><b>出荷</b></div><h2>パッケージングしていこう。</h2><p>出荷時点の3D、署名、ステッカー、ブランド情報から宣材4ページを作成し、4ページ目をXシェア画像に使用します。</p><button type="button" onClick={ship} disabled={workflow === 'shipping'}>{workflow === 'shipping' ? '出荷準備中…' : workflow === 'shipped' ? '現在の状態で再出荷' : 'この一台を出荷する'}</button></article>
       </div>
     </section>}
     {phase === 'result' && pedal && !editorialCoverImage && <EditorialCoverCapture key={`${pedal.id}-${viewReset}`} pedal={pedal} stickers={activeFinish.stickers} signatures={activeFinish.signatures} onCapture={setEditorialCoverImage} />}

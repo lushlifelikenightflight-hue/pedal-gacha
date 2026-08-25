@@ -25,6 +25,31 @@
 .editorial-cover-top-photo img{display:block;width:100%;height:100%;object-fit:contain;object-position:center}
 .editorial-cover-top-page>footer{display:flex;justify-content:space-between;gap:1rem;padding-top:1rem;border-top:7px solid var(--accent)}
 .editorial-cover-top-page>footer span{text-align:right}
+.editorial-magazine-cover{position:relative;display:block!important;overflow:hidden;padding:0!important;background:#f5f4ee!important;color:#101510!important}
+.editorial-magazine-cover>figure{position:absolute;inset:9% 2% 12%;margin:0;overflow:hidden;background:#e7e8df}
+.editorial-magazine-cover>figure::after{position:absolute;inset:0;background:rgba(245,244,238,.08);content:"";pointer-events:none}
+.editorial-magazine-cover>figure img{width:100%;height:100%;object-fit:cover;object-position:center;transform:scale(1.08)}
+.editorial-magazine-cover>header{position:absolute;z-index:3;top:2.4%;right:3.5%;left:3.5%;height:auto;padding:0;border:0;background:transparent;color:#009f7a}
+.editorial-magazine-cover>header span{display:block;font:900 clamp(.62rem,1cqw,.82rem)/1 var(--mono);letter-spacing:.18em}
+.editorial-magazine-cover>header b{display:block;margin-top:-.15em;font:900 clamp(4.5rem,12.5cqw,8.4rem)/.78 Georgia,"Times New Roman",serif;letter-spacing:-.075em;white-space:nowrap}
+.editorial-magazine-cover>header small{position:absolute;top:.3rem;right:0;font:900 clamp(.48rem,.72cqw,.65rem)/1 var(--mono);letter-spacing:.1em;color:#101510}
+.editorial-magazine-cover>aside{position:absolute;z-index:4;top:16%;right:3.5%;width:30%;padding:.8rem;background:rgba(245,244,238,.9);text-align:right}
+.editorial-magazine-cover>aside span{color:#009f7a;font:900 clamp(.5rem,.7cqw,.68rem)/1 var(--mono);letter-spacing:.12em}.editorial-magazine-cover>aside p{margin:.45rem 0 0;font:800 clamp(.6rem,.88cqw,.82rem)/1.35 var(--sans)}
+.magazine-cover-title{position:absolute;z-index:5;right:3.5%;bottom:5.5%;left:3.5%;color:#009f7a}
+.magazine-cover-title p{max-width:34em;margin:0 0 1rem;padding:.7rem .8rem;background:rgba(245,244,238,.9);color:#101510;font:800 clamp(.65rem,.92cqw,.86rem)/1.45 var(--sans)}
+.magazine-cover-title h2{margin:0;font:900 clamp(4.4rem,13.5cqw,9.2rem)/.7 Georgia,"Times New Roman",serif;letter-spacing:-.085em;overflow-wrap:anywhere;text-transform:uppercase;text-shadow:0 1px #f5f4ee}
+.editorial-magazine-cover>footer{position:absolute;z-index:6;right:3.5%;bottom:1.5%;left:3.5%;display:flex;justify-content:space-between;font:900 clamp(.5rem,.72cqw,.68rem)/1 var(--mono);letter-spacing:.12em;color:#101510}
+.editorial-character-page{position:relative;display:grid!important;grid-template-rows:42% auto 1fr auto;gap:2.4cqw;overflow:hidden;padding:5cqw!important;background:#111713!important;color:#f3f4ec!important}
+.editorial-character-page>figure{position:relative;margin:0;overflow:hidden;background:#242b24}.editorial-character-page>figure img{width:100%;height:100%;object-fit:cover;object-position:center 35%;transform:scale(1.06)}
+.editorial-character-page>header{height:auto;padding:0;border:0}.editorial-character-page>header h3{margin:.6cqw 0 0;font-size:clamp(2.5rem,7.2cqw,5rem);line-height:.78;letter-spacing:-.07em}.editorial-character-page .editorial-number{color:var(--accent)}
+.editorial-character-page blockquote{display:grid;gap:.45rem;margin:0;padding-left:1rem;border-left:6px solid var(--accent);font:600 clamp(.72rem,1.05cqw,.95rem)/1.45 Georgia,"Yu Mincho",serif}.editorial-character-page blockquote span{display:block}
+.character-facts{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:#546052}.character-facts section{display:grid;gap:.55rem;padding:1rem;background:#e8ebdf;color:#111713}.character-facts span{font:900 .55rem/1 var(--mono);letter-spacing:.12em;color:#687163}.character-facts b{font-size:clamp(.85rem,1.3cqw,1.15rem);overflow-wrap:anywhere}.character-facts p{margin:0;font-size:clamp(.6rem,.82cqw,.76rem);line-height:1.55}
+.editorial-spec-page{background:#f4f2e9!important}.editorial-spec-page>header>p:last-child{padding-left:1rem;border-left:5px solid var(--accent);font-family:Georgia,"Yu Mincho",serif}
+.editorial-share-page{display:grid!important;grid-template-rows:auto auto 1fr;gap:3cqw;overflow:hidden;padding:5.5cqw!important;background:#e9e7de!important;color:#111611!important}
+.editorial-share-page>header{height:auto;padding:0;border:0}.editorial-share-page>header h3{margin:.7cqw 0 1.2cqw;font-size:clamp(2.6rem,7.3cqw,5.3rem);line-height:.78;letter-spacing:-.07em}.editorial-share-page>header>p:last-child{margin:0;font-size:clamp(.68rem,.95cqw,.88rem)}
+.editorial-share-artwork{align-self:center;margin:0;background:#101510;box-shadow:0 24px 50px rgba(16,20,16,.24)}.editorial-share-artwork img{display:block;width:100%;aspect-ratio:16/9;object-fit:contain}.editorial-share-artwork figcaption{padding:.65rem .8rem;background:#101510;color:#b7ff19;font:800 .55rem/1 var(--mono);letter-spacing:.12em}
+.editorial-share-page>dl{display:grid;grid-template-columns:1fr 1fr;align-content:start;gap:1px;margin:0;background:#aeb4a8}.editorial-share-page>dl>div{padding:1rem;background:#f4f2e9}.editorial-share-page dt{color:#697166;font:900 .5rem/1 var(--mono);letter-spacing:.12em}.editorial-share-page dd{margin:.45rem 0 0;font:800 clamp(.65rem,.95cqw,.85rem)/1.25 var(--sans);overflow-wrap:anywhere}
+.share-page-source{margin:1px 0 0;padding:.7rem .8rem;background:#182019;color:#b7ff19;font:800 .62rem/1 var(--mono);letter-spacing:.12em}
 .share-final-workbench{max-width:1320px!important}
 .share-final-workbench .share-hero-copy h2{max-width:13em;font-size:clamp(2.5rem,5vw,5.5rem);line-height:.86}
 .share-workbench{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(320px,.85fr);gap:clamp(1rem,3vw,3rem);align-items:start}
@@ -45,7 +70,7 @@
 .hashtag-picker input{min-width:0;flex:1;border:1px solid #4b5846;background:#0d130e;color:#f2f6ee;padding:.6rem}
 .share-secondary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px}
 .share-secondary button{min-height:42px;border:1px solid #4b5846;background:#151d16;color:#dfe6da;font:750 .62rem/1.2 var(--mono)}
-@media(max-width:800px){.share-workbench{grid-template-columns:1fr}.share-secondary{grid-template-columns:1fr}.editorial-cover-top-page{padding:7cqw!important}.editorial-cover-top-photo{padding:2%}}
+@media(max-width:800px){.share-workbench{grid-template-columns:1fr}.share-secondary{grid-template-columns:1fr}.editorial-cover-top-page{padding:7cqw!important}.editorial-cover-top-photo{padding:2%}.editorial-magazine-cover>header b{font-size:15cqw}.magazine-cover-title h2{font-size:15cqw}.editorial-character-page{grid-template-rows:36% auto 1fr auto}.character-facts{grid-template-columns:1fr}.editorial-share-page>dl{grid-template-columns:1fr}}
 
 .stage-wrap::after {
   position: absolute;
