@@ -1165,7 +1165,7 @@ function EditorialCoverCaptureScene({ pedal, stickers, signatures, onCapture }: 
     if (captured.current || !root.current || ++frames.current < 12 || !(camera instanceof THREE.PerspectiveCamera)) return;
     root.current.updateWorldMatrix(true, true); const box = new THREE.Box3().setFromObject(root.current); const center = box.getCenter(new THREE.Vector3()); const bounds = box.getSize(new THREE.Vector3());
     const extent = Math.max(bounds.x, bounds.z); camera.aspect = size.width / size.height; camera.fov = 30; camera.near = .01; camera.far = 100;
-    camera.up.set(0, 1, 0); camera.position.set(center.x + extent * .72, box.max.y + extent * .82, center.z + extent * 1.08); camera.lookAt(center.x, center.y + .12, center.z); camera.updateProjectionMatrix(); gl.render(scene, camera);
+    camera.up.set(0, 1, 0); camera.position.set(center.x + extent * .84, box.max.y + extent * .96, center.z + extent * 1.26); camera.lookAt(center.x, center.y + .12, center.z); camera.updateProjectionMatrix(); gl.render(scene, camera);
     captured.current = true; onCapture(gl.domElement.toDataURL('image/png'));
   });
   return <>

@@ -29,7 +29,7 @@
 .editorial-magazine-cover{position:relative;display:block!important;overflow:hidden;padding:0!important;border:1px solid #405046;background:#08100b!important;color:#f4f5ed!important}
 .editorial-magazine-cover>figure{position:absolute;inset:0;margin:0;overflow:hidden;background:#08100b}
 .editorial-magazine-cover>figure::after{position:absolute;inset:55% 0 0;background:linear-gradient(transparent,rgba(3,9,5,.95));content:"";pointer-events:none}
-.editorial-magazine-cover>figure img{width:100%;height:100%;object-fit:cover;object-position:center 42%;transform:scale(1.12)}
+.editorial-magazine-cover>figure img{width:100%;height:100%;object-fit:cover;object-position:center 42%;transform:none}
 .magazine-cover-title{position:absolute;z-index:5;right:7%;bottom:8%;left:7%;color:#f4f5ed}
 .magazine-cover-title>span{display:block;margin-bottom:1.2cqw;color:#b7ff19;font:900 clamp(.58rem,.9cqw,.78rem)/1 var(--mono);letter-spacing:.16em;text-transform:uppercase}
 .magazine-cover-title h2{margin:0;font:900 clamp(4.1rem,11.8cqw,8.1rem)/.76 Arial Black,Arial,sans-serif;letter-spacing:-.075em;overflow-wrap:anywhere;text-transform:uppercase}
@@ -2074,7 +2074,10 @@
   .manual-chapter-rail{grid-template-columns:repeat(3,minmax(92px,1fr))}
   .editorial-explainer-grid{grid-template-columns:1fr}
   .editorial-explainer-grid section{padding:1rem}
-  .warranty-fields div{grid-template-columns:1fr;gap:.55rem}
+  .editorial-warranty-page{grid-template-rows:auto auto auto auto auto;align-content:start;gap:2cqw}
+  .manual-page.editorial-warranty-page .warranty-copy p{font-size:clamp(8px,1.6cqw,10px);line-height:1.45}
+  .warranty-fields{align-content:start}
+  .warranty-fields div{grid-template-columns:34% 1fr;gap:2cqw;padding:1cqw 0}
   .x-share-only .share-grid{grid-template-columns:1fr}
 }
 .hero .lede { max-width: 43em; margin-top: 18px; text-wrap: pretty; }
