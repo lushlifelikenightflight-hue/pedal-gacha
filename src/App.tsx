@@ -1043,12 +1043,20 @@ function ForgeMachine({ pedal, reduce }: { pedal: Pedal | null; reduce: boolean 
     <pointLight position={[0, .4, 0]} color={color} intensity={3.2} distance={6} decay={1.8} />
   </group>;
 }
-function CameraController({ enabled, home, resetToken, autoRotate }: { enabled: boolean; home: [number, number, number]; resetToken: number; autoRotate: boolean }) {
+type CameraFitFrame = { width: number; height: number; padding: number };
+function CameraController({ enabled, home, resetToken, autoRotate, fitFrame }: { enabled: boolean; home: [number, number, number]; resetToken: number; autoRotate: boolean; fitFrame?: CameraFitFrame }) {
   const { camera, gl, size } = useThree(); const controls = useMemo(() => new OrbitControls(camera, gl.domElement), [camera, gl.domElement]);
   const fittedHome = useMemo<[number, number, number]>(() => {
+    if (fitFrame && camera instanceof THREE.PerspectiveCamera) {
+      const aspect = Math.max(.1, size.width / Math.max(1, size.height)); const halfFov = THREE.MathUtils.degToRad(camera.fov) / 2;
+      const verticalDistance = fitFrame.height / 2 / Math.tan(halfFov); const horizontalDistance = fitFrame.width / 2 / (Math.tan(halfFov) * aspect);
+      const fitDistance = Math.max(verticalDistance, horizontalDistance) * fitFrame.padding;
+      const direction = new THREE.Vector3(...home).normalize().multiplyScalar(fitDistance);
+      return direction.toArray() as [number, number, number];
+    }
     const portraitScale = size.width < size.height ? 1.16 : 1;
     return home.map(value => value * portraitScale) as [number, number, number];
-  }, [home, size.height, size.width]);
+  }, [camera, fitFrame, home, size.height, size.width]);
   useEffect(() => { controls.enableDamping = true; controls.dampingFactor = .08; controls.enablePan = false; controls.minPolarAngle = .08; controls.maxPolarAngle = Math.PI - .08; controls.touches.ONE = THREE.TOUCH.ROTATE; controls.touches.TWO = THREE.TOUCH.DOLLY_ROTATE; return () => controls.dispose(); }, [controls]);
   useEffect(() => { controls.enabled = enabled; controls.autoRotate = enabled && autoRotate; controls.autoRotateSpeed = .75; controls.minDistance = Math.hypot(...fittedHome) * .5; controls.maxDistance = Math.hypot(...fittedHome) * 1.6; }, [controls, enabled, fittedHome, autoRotate]);
   useEffect(() => { camera.up.set(0, Math.abs(fittedHome[1]) > Math.abs(fittedHome[2]) ? 0 : 1, Math.abs(fittedHome[1]) > Math.abs(fittedHome[2]) ? -1 : 0); camera.position.set(...fittedHome); controls.target.set(0, 0, 0); controls.update(); }, [camera, controls, fittedHome, resetToken]);
@@ -1074,13 +1082,18 @@ function Stage({ pedal, phase, canvasRef, reduce, resetToken, viewMode, runtimeM
   const topView = phase === 'revealing' || phase === 'result';
   const floorless = viewMode === 'white' || viewMode === 'dark';
   const extent = pedal ? Math.max(enclosureDimensions[pedal.enclosure].width, enclosureDimensions[pedal.enclosure].height) : 4; const distance = extent * 1.42;
+  const editFitFrame = useMemo<CameraFitFrame | undefined>(() => {
+    if (!directMarkEditing || !pedal) return undefined;
+    const enclosure = enclosureDimensions[pedal.enclosure]; const side = inspectSurface === 'left-side' || inspectSurface === 'right-side';
+    return side ? { width: enclosure.height, height: enclosure.depth * 1.85, padding: 1.18 } : { width: enclosure.width, height: enclosure.height, padding: 1.18 };
+  }, [directMarkEditing, inspectSurface, pedal]);
   const home = useMemo<[number, number, number]>(() => {
     if (!topView) return [0, 0, 7];
     if (directMarkEditing) {
       if (inspectSurface === 'left-side') return [-distance, 0, 0];
       if (inspectSurface === 'right-side') return [distance, 0, 0];
-      if (inspectSurface === 'back') return [0, -distance, .001];
-      return [0, distance, .001];
+      if (inspectSurface === 'back') return [0, -distance, 0];
+      return [0, distance, 0];
     }
     return viewMode === 'studio' ? [distance * .42, distance * .88, distance * .72] : viewMode === 'hero' ? [distance * .76, distance * .48, distance * .82] : floorless ? [distance * .38, distance * .62, distance * .86] : [distance * .56, distance * .74, distance * .82];
   }, [directMarkEditing, distance, floorless, inspectSurface, topView, viewMode]);
@@ -1088,7 +1101,7 @@ function Stage({ pedal, phase, canvasRef, reduce, resetToken, viewMode, runtimeM
   const floorY = topView ? -.62 : -2.2;
   return <Canvas className="forge-canvas" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} shadows dpr={[1, 1.5]} gl={{ preserveDrawingBuffer: true, antialias: true }} onCreated={({ gl, camera }) => { canvasRef.current = gl.domElement; camera.lookAt(0, 0, 0); }} fallback={<div className="canvas-fallback">3D PREVIEW UNAVAILABLE</div>} camera={{ position: home, fov: directMarkEditing ? 26 : viewMode === 'hero' ? 34 : topView ? 36 : 38 }}>
     <RenderSettings viewMode={viewMode} />
-    <CameraController enabled={phase === 'result' && !directMarkEditing} home={home} resetToken={resetToken} autoRotate={autoRotate} />
+    <CameraController enabled={phase === 'result' && !directMarkEditing} home={home} resetToken={resetToken} autoRotate={autoRotate} fitFrame={editFitFrame} />
     <color attach="background" args={[background]} />
     <hemisphereLight color={viewMode === 'white' ? '#ffffff' : viewMode === 'studio' ? '#ffffff' : '#dce7df'} groundColor={viewMode === 'white' ? '#e4e5df' : viewMode === 'studio' ? '#d8d8d3' : '#171c18'} intensity={viewMode === 'white' ? 1.65 : viewMode === 'studio' ? 1.5 : .72} />
     <ambientLight intensity={viewMode === 'white' ? .52 : viewMode === 'dark' ? .12 : viewMode === 'studio' ? .42 : .18} />
