@@ -1169,7 +1169,7 @@ function EditorialCoverCaptureScene({ pedal, stickers, signatures, onCapture }: 
     captured.current = true; onCapture(gl.domElement.toDataURL('image/png'));
   });
   return <>
-    <color attach="background" args={['#f2f0e8']} /><ambientLight intensity={1.15} /><hemisphereLight color="#ffffff" groundColor="#d8d5ca" intensity={1.5} /><directionalLight position={[-4, 9, 5]} intensity={3.4} color="#fff8eb" />
+    <color attach="background" args={['#08100b']} /><ambientLight intensity={.52} /><hemisphereLight color="#eef5ef" groundColor="#101711" intensity={.9} /><directionalLight position={[-4, 9, 5]} intensity={4.2} color="#fff8eb" />
     <group ref={root}><PedalModel pedal={pedal} runtimeMode="play" userGraphics={stickers} marks={signatures} shotPreset="editorial-cover-top" /></group>
   </>;
 }
@@ -1181,7 +1181,7 @@ function EditorialTopCaptureScene({ pedal, stickers, signatures, onCapture }: { 
   useFrame(() => {
     if (captured.current || !root.current || ++frames.current < 12 || !(camera instanceof THREE.OrthographicCamera)) return;
     root.current.updateWorldMatrix(true, true); const box = new THREE.Box3().setFromObject(root.current); const center = box.getCenter(new THREE.Vector3()); const bounds = box.getSize(new THREE.Vector3());
-    const aspect = size.width / size.height; const paddedWidth = bounds.x * 1.18; const paddedHeight = bounds.z * 1.18; const viewHeight = Math.max(paddedHeight, paddedWidth / aspect);
+    const aspect = size.width / size.height; const paddedWidth = bounds.x * 1.08; const paddedHeight = bounds.z * 1.08; const viewHeight = Math.max(paddedHeight, paddedWidth / aspect);
     camera.left = -viewHeight * aspect / 2; camera.right = viewHeight * aspect / 2; camera.top = viewHeight / 2; camera.bottom = -viewHeight / 2; camera.near = .01; camera.far = 100;
     camera.up.set(0, 0, -1); camera.position.set(center.x, box.max.y + 10, center.z); camera.lookAt(center); camera.updateProjectionMatrix(); gl.render(scene, camera);
     captured.current = true; onCapture(gl.domElement.toDataURL('image/png'));
@@ -1247,10 +1247,7 @@ function EditorialResult({ pedal, coverImage, editorialCoverImage, editorialTopI
   const pages = [
     <article className={pageClass(0, 'editorial-magazine-cover')} key="cover" data-shot-preset="EDITORIAL_COVER_THREE_QUARTER">
       <figure>{productImage ? <img src={productImage} alt={pedal.name + ' の斜め上面写真'} /> : <div className="cover-photo-loading">DEVELOPING COVER PHOTOGRAPH…</div>}</figure>
-      <header><span>THE</span><b>EFFECTOR</b><small>FORGED SOUND / ISSUE {issue}</small></header>
-      <aside><span>ONE OF ONE</span><p>{pedal.type} / {maker}</p></aside>
-      <div className="magazine-cover-title"><p>{pedal.copy}。</p><h2>{pedal.name.replace(' // LIMITED', '')}</h2></div>
-      <footer><b>PEDAL FORGE</b><span>{pedal.modelNumber || pedal.serial}</span></footer>
+      <div className="magazine-cover-title"><span>{maker}</span><h2>{pedal.name.replace(' // LIMITED', '')}</h2><p>{pedal.copy}。</p></div>
     </article>,
     <article className={pageClass(1, 'editorial-explainer-page editorial-spec-page')} key="guide">
       <header><p className="editorial-number">02 / FORM & CONTROL</p><h3>BUILT TO<br />BE PLAYED.</h3><p>{pedal.warning}</p></header>
@@ -1264,7 +1261,8 @@ function EditorialResult({ pedal, coverImage, editorialCoverImage, editorialTopI
     <article className={pageClass(2, 'editorial-warranty-page')} key="warranty">
       <div className="warranty-kicker">PEDAL FORGE / LIMITED WARRANTY</div>
       <div className="warranty-seal" aria-hidden="true"><span>ONE</span><b>YEAR</b><small>LIMITED</small></div>
-      <header><p>CERTIFICATE OF</p><h3>WARRANTY</h3><span>This certificate confirms that the product identified below is covered by the manufacturer's limited warranty.</span></header>
+      <header><p>CERTIFICATE OF</p><h3>WARRANTY</h3></header>
+      <div className="warranty-copy"><p>This certificate confirms that the product identified below is covered by the manufacturer’s limited warranty.</p><p>MOONLIT CIRCUIT DEVICES warrants this product against defects in materials and workmanship for a period of one year from the original date of purchase. During the warranty period, any product found to be defective under normal use will be repaired or replaced at the manufacturer’s discretion.</p><p>This warranty is valid only for the original owner and applies to the product bearing the serial number recorded below.</p></div>
       <dl className="warranty-fields"><div><dt>EFFECT PEDAL</dt><dd>{pedal.name}</dd></div><div><dt>SERIAL NUMBER</dt><dd>{pedal.serial}</dd></div><div><dt>DATE OF ISSUE</dt><dd>{warrantyDate}</dd></div><div><dt>MANUFACTURER</dt><dd>{maker}</dd></div></dl>
       <footer><span>AUTHORIZED AND RECORDED</span><b>{maker}</b></footer>
     </article>,
@@ -1291,10 +1289,10 @@ const drawFittedCanvasText = (ctx: CanvasRenderingContext2D, text: string, x: nu
 async function createSocialXShare(pedal: Pedal, sourceImage: string): Promise<Blob> {
   const canvas = document.createElement('canvas'); canvas.width = 1200; canvas.height = 675; const ctx = canvas.getContext('2d'); if (!ctx) throw new Error('CANVAS_UNAVAILABLE');
   ctx.fillStyle = '#f2f0e8'; ctx.fillRect(0, 0, canvas.width, canvas.height); const image = sourceImage ? await loadShareImage(sourceImage).catch(() => null) : null;
-  ctx.fillStyle = '#101510'; drawFittedCanvasText(ctx, pedal.name.replace(' // LIMITED', ''), 64, 94, 1072, 70, 38, 'Georgia');
-  if (image) drawCoverContain(ctx, image, 72, 122, 1056, 390);
+  ctx.fillStyle = '#101510'; drawFittedCanvasText(ctx, pedal.name.replace(' // LIMITED', ''), 48, 72, 1104, 62, 34, 'Georgia');
+  if (image) drawCoverContain(ctx, image, 40, 86, 1120, 480);
   const lines = [`${pedal.copy}。`, `${pedal.type.split(' ').slice(0, 2).join(' ')}の気配が、弾いた輪郭のあとを静かに追いかける。`, `${pedal.usage}へ、まだ名前のない余韻を連れていく。`];
-  ctx.fillStyle = '#242a23'; ctx.font = '600 20px Georgia, "Yu Mincho", serif'; lines.forEach((line, index) => ctx.fillText(line, 76, 554 + index * 32));
+  ctx.fillStyle = '#242a23'; ctx.font = '600 18px Georgia, "Yu Mincho", serif'; lines.forEach((line, index) => ctx.fillText(line, 52, 594 + index * 26));
   return canvasBlob(canvas);
 }
 function EditorialShareArtwork({ pedal, sourceImage }: { pedal: Pedal; sourceImage: string }) {
