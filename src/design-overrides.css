@@ -3133,18 +3133,18 @@
 .board-editor-head{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:end;margin-bottom:14px}
 .board-editor-head label{display:grid;gap:7px;color:#9eaa98;font:800 10px/1 "Courier New",monospace;letter-spacing:.12em}
 .board-editor-head input{margin:0;min-height:46px}.board-editor-head .archive-delete{height:46px}
-.pedalboard-preview{position:relative;width:100%;height:clamp(330px,48vw,520px);overflow:hidden;border:1px solid #3d4739;background:#0a0d0a;touch-action:none}
+.pedalboard-preview{position:relative;width:100%;height:clamp(330px,48vw,520px);overflow:hidden;border:1px solid #927354;background:#d9c9ad;touch-action:none}
 .pedalboard-preview canvas{display:block;width:100%!important;height:100%!important}
 .pedalboard-preview.is-empty{display:grid;place-items:center;height:270px;min-height:270px;touch-action:auto}
 .pedalboard-preview>p{margin:auto;color:#8f9a8a}
-.board-signal-flow{position:absolute;right:12px;bottom:10px;padding:6px 8px;background:#090c09cc;color:#b7ff19;font:800 9px/1 "Courier New",monospace;letter-spacing:.08em;pointer-events:none}
+.board-signal-flow{position:absolute;right:12px;bottom:10px;padding:6px 8px;background:#24170dcc;color:#e9ffad;font:800 9px/1 "Courier New",monospace;letter-spacing:.08em;pointer-events:none}
 .board-order-strip{display:flex;flex-direction:row-reverse;gap:2px;overflow-x:auto;padding:2px 0 0}
 .board-order-strip article{flex:1 0 150px;display:grid;gap:7px;min-width:0;padding:10px;background:#182018;color:#edf3e9}
 .board-order-strip article>span{color:#b7ff19;font:800 9px/1 "Courier New",monospace}.board-order-strip article>b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .board-order-strip nav{display:grid;grid-template-columns:34px 34px 1fr;gap:2px}.board-order-strip nav button{min-height:34px;border:0;background:#0c110c;color:#e9eee5;font-size:11px;font-weight:800}.board-order-strip nav button:disabled{opacity:.3}
 .board-actions{display:flex;justify-content:space-between;gap:14px;align-items:center;padding:16px 0}.board-actions>span{color:#9ca696;font:800 11px/1 monospace}.board-actions .share-primary{min-height:48px}
 .board-pedal-picker{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1px;background:#3b4637}.board-pedal-picker>b{grid-column:1/-1;padding:12px;background:#101510;color:#b7ff19;font:800 10px/1 monospace;letter-spacing:.12em}
-.board-pedal-picker button{display:flex;justify-content:space-between;gap:12px;min-width:0;min-height:44px;padding:10px 12px;border:0;background:#182018;color:#edf2e9;text-align:left}.board-pedal-picker button:disabled{opacity:.42}.board-pedal-picker button span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.board-pedal-picker button small{flex:none;color:#b7ff19}
+.board-pedal-picker button{display:grid;grid-template-columns:72px minmax(0,1fr) auto;gap:10px;align-items:center;min-width:0;min-height:66px;padding:8px 10px;border:0;background:#182018;color:#edf2e9;text-align:left}.board-pedal-picker button:disabled{opacity:.48}.board-picker-thumb{display:block;width:72px;height:50px;border:1px solid #56614f;background:#f2f0e8;object-fit:contain}.board-picker-thumb.is-loading{place-items:center;padding:5px;background:#101510;color:#7f8a7a;font:700 8px/1.2 "Courier New",monospace;text-align:center}.board-picker-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:800}.board-pedal-picker button small{flex:none;color:#b7ff19}
 @media(max-width:600px){
   .archive-save-panel{margin-bottom:48px;padding:34px 18px}
   .archive-drawer{padding:58px 14px 34px}
@@ -3152,5 +3152,5 @@
   .archive-pedal-card{grid-template-columns:minmax(0,1fr) 58px}.archive-open{grid-template-columns:88px minmax(0,1fr);gap:9px;padding:8px}.archive-pedal-thumb{width:88px;height:62px}.archive-delete{min-width:58px;padding-inline:5px}
   .board-editor-head{grid-template-columns:1fr}.board-editor-head .archive-delete{justify-self:stretch}
   .pedalboard-preview{height:360px}
-  .board-actions{align-items:stretch;flex-direction:column}.board-pedal-picker{grid-template-columns:1fr}
+  .board-actions{align-items:stretch;flex-direction:column}.board-pedal-picker{grid-template-columns:1fr}.board-pedal-picker button{grid-template-columns:64px minmax(0,1fr) auto}.board-picker-thumb{width:64px;height:46px}
 }
