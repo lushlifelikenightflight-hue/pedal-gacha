@@ -2044,7 +2044,7 @@
 .manual-chapter-rail{grid-template-columns:repeat(3,minmax(110px,1fr))}
 .editorial-explainer-page{display:grid!important;grid-template-rows:auto minmax(0,1fr);gap:4cqw;padding:6cqw!important;background:#eeeee7;color:#121712}
 .editorial-explainer-page>header{height:auto;padding:0;border:0}
-.editorial-explainer-page>header h3{max-width:8em;margin:1.2cqw 0 1.5cqw;font-size:clamp(2.2rem,6.5cqw,4.5rem);line-height:.82;letter-spacing:-.06em}
+.editorial-explainer-page>header h3{max-width:8em;margin:1.2cqw 0 1.5cqw;font-size:clamp(2rem,5.7cqw,4rem);line-height:.84;letter-spacing:-.055em}
 .editorial-explainer-page>header>p:last-child{max-width:34em;margin:0;font-size:clamp(.72rem,1.15cqw,.94rem);line-height:1.75}
 .editorial-explainer-grid{display:grid;grid-template-columns:1fr 1fr;gap:1px;min-height:0;background:#b8beb4}
 .editorial-explainer-grid section{display:grid;align-content:start;gap:.8cqw;padding:2.2cqw;background:#e2e8dc}

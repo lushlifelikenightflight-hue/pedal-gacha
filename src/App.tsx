@@ -1250,7 +1250,7 @@ function EditorialResult({ pedal, coverImage, editorialCoverImage, editorialTopI
       <div className="magazine-cover-title"><span>{maker}</span><h2>{pedal.name.replace(' // LIMITED', '')}</h2><p>{pedal.copy}。</p></div>
     </article>,
     <article className={pageClass(1, 'editorial-explainer-page editorial-spec-page')} key="guide">
-      <header><p className="editorial-number">02 / FORM & CONTROL</p><h3>BUILT TO<br />BE PLAYED.</h3><p>{pedal.warning}</p></header>
+      <header><p className="editorial-number">02 / FORM & CONTROL</p><h3>BUILT<br />TO BE<br />PLAYED.</h3><p>{pedal.warning}</p></header>
       <div className="editorial-explainer-grid">
         <section><span>01 / BUILD</span><b>{enclosureLabel}</b><p>{pedal.effectArchitecture || pedal.type}の回路構成を、この筐体サイズへ収めています。</p></section>
         <section><span>02 / CONTROL</span><b>{controlLabel}</b><p>{controlCount ? controlNames.slice(0, 5).join(' / ') + 'を使って音を追い込みます。' : 'フットスイッチだけで直感的に操作できます。'}</p></section>
@@ -1321,23 +1321,11 @@ function SharePanel({ pedal, sourceImage, editorialTopImage, onNotice }: { pedal
   const copyText = async () => { await navigator.clipboard.writeText(completeText); onNotice('投稿文をコピーしました'); };
   const saveImage = async () => { downloadShareFile(await makeFile()); onNotice('共有画像を保存しました'); };
   const copyImage = async () => { try { if (typeof ClipboardItem === 'undefined' || !navigator.clipboard?.write) throw new Error('UNSUPPORTED'); const blob = imageBlob || await createBlob(); await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]); onNotice('画像をクリップボードへコピーしました'); } catch { await saveImage(); onNotice('画像コピー非対応のためPNGを保存しました'); } };
-  const openXFallback = async () => { const intentUrl = new URL('https://x.com/intent/post'); intentUrl.searchParams.set('text', completeText); window.open(intentUrl.toString(), '_blank', 'noopener,noreferrer'); setBusy(true); try { try { await navigator.clipboard.writeText(completeText); } catch { /* The editable post remains visible for manual copy. */ } try { await copyImage(); } catch { await saveImage(); } onNotice('Xの下書きを開きました。コピーまたは保存した画像を投稿へ添付してください。'); } finally { setBusy(false); } };
-  const shareToX = async () => {
-    const file = imageBlob ? new File([imageBlob], `${pedal.serial}-editorial-page-4.png`, { type: 'image/png' }) : null;
-    if (!file || !navigator.share || !navigator.canShare?.({ files: [file] })) return openXFallback();
-    setBusy(true);
-    try {
-      await navigator.share({ files: [file], text: completeText, title: `${pedal.name.replace(' // LIMITED', '')} / PEDAL FORGE` });
-      onNotice('共有画面へ画像と投稿文を渡しました');
-    } catch (error) {
-      if (error instanceof DOMException && error.name === 'AbortError') onNotice('共有をキャンセルしました');
-      else await openXFallback();
-    } finally { setBusy(false); }
-  };
+  const openX = async () => { const intentUrl = new URL('https://x.com/intent/post'); intentUrl.searchParams.set('text', completeText); window.open(intentUrl.toString(), '_blank', 'noopener,noreferrer'); setBusy(true); try { try { await navigator.clipboard.writeText(completeText); } catch { /* The editable post remains visible for manual copy. */ } try { await copyImage(); } catch { await saveImage(); } onNotice('Xの下書きを開きました。コピーまたは保存した画像を投稿へ添付してください。'); } finally { setBusy(false); } };
   return <section className="share-panel share-final-workbench" aria-labelledby="share-title">
     <header className="share-hero-copy"><span>SHARE / FINAL</span><h2 id="share-title">このエフェクターをXでシェア</h2></header>
     <div className="share-workbench"><div><div className="share-preview">{preview ? <img src={preview} alt="宣材4ページ目と共通のX共有画像プレビュー" /> : <span>GENERATING PAGE 4 IMAGE…</span>}</div><p className="share-page-source">EDITORIAL PAGE 04 / X SHARE MASTER</p></div>
-      <div className="share-compose"><label>POST<textarea value={postText} maxLength={240} onChange={event => setPostText(event.target.value)} /></label><output>{completeText.length} / 280</output><div className="hashtag-picker"><span>HASHTAGS</span>{candidates.map(tag => <button type="button" key={tag} className={hashtags.includes(tag) ? 'active' : ''} onClick={() => setHashtags(current => current.includes(tag) ? current.filter(item => item !== tag) : [...current, tag].slice(0, 5))}>{tag}</button>)}<form onSubmit={event => { event.preventDefault(); const tag = '#' + customTag.trim().replace(/^#/, '').replace(/\s+/g, ''); if (tag.length > 1 && !hashtags.includes(tag)) setHashtags(current => [...current, tag].slice(0, 5)); setCustomTag(''); }}><input value={customTag} onChange={event => setCustomTag(event.target.value)} placeholder="CUSTOM TAG" /><button type="submit">＋追加</button></form></div><button type="button" className="share-primary" onClick={shareToX} disabled={busy}>{busy ? 'シェア画像を準備中…' : 'このエフェクターをXでシェア'}</button><div className="share-secondary"><button type="button" onClick={saveImage}>画像を保存</button><button type="button" onClick={copyImage}>画像をコピー</button><button type="button" onClick={copyText}>投稿文をコピー</button></div></div></div>
+      <div className="share-compose"><label>POST<textarea value={postText} maxLength={240} onChange={event => setPostText(event.target.value)} /></label><output>{completeText.length} / 280</output><div className="hashtag-picker"><span>HASHTAGS</span>{candidates.map(tag => <button type="button" key={tag} className={hashtags.includes(tag) ? 'active' : ''} onClick={() => setHashtags(current => current.includes(tag) ? current.filter(item => item !== tag) : [...current, tag].slice(0, 5))}>{tag}</button>)}<form onSubmit={event => { event.preventDefault(); const tag = '#' + customTag.trim().replace(/^#/, '').replace(/\s+/g, ''); if (tag.length > 1 && !hashtags.includes(tag)) setHashtags(current => [...current, tag].slice(0, 5)); setCustomTag(''); }}><input value={customTag} onChange={event => setCustomTag(event.target.value)} placeholder="CUSTOM TAG" /><button type="submit">＋追加</button></form></div><button type="button" className="share-primary" onClick={openX} disabled={busy}>{busy ? 'シェア画像を準備中…' : 'このエフェクターをXでシェア'}</button><div className="share-secondary"><button type="button" onClick={saveImage}>画像を保存</button><button type="button" onClick={copyImage}>画像をコピー</button><button type="button" onClick={copyText}>投稿文をコピー</button></div></div></div>
   </section>;
 }
 const stored = (): Pedal[] => { try { return JSON.parse(localStorage.getItem('pedal-gacha-v2') || '[]'); } catch { return []; } };
