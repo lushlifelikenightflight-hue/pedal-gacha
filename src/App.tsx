@@ -845,9 +845,61 @@ function DirectMarkSurface({ mark, size, surfaceY, onChange }: { mark: PedalMark
     <mesh position={[size.width / 2 + .045, 0, 0]} rotation={[0, Math.PI / 2, 0]} renderOrder={8} {...handlers('right-side')}><planeGeometry args={[size.height, size.depth]} />{hitMaterial}</mesh>
   </>;
 }
+type DirectTransformPatch = { size?: number; rotation?: number };
+function DirectTransformFrame({ surface, u, v, width, height, rotation, size, enclosure, surfaceY, onChange }: { surface: MarkSurface; u: number; v: number; width: number; height: number; rotation: number; size: number; enclosure: { width: number; height: number; depth: number }; surfaceY: number; onChange: (patch: DirectTransformPatch) => void }) {
+  const groupRef = useRef<THREE.Group>(null); const operationRef = useRef<{ kind: 'resize' | 'rotate'; centerX: number; centerY: number; startDistance: number; startAngle: number; startSize: number; startRotation: number; orientation: number } | null>(null);
+  const changeRef = useRef(onChange); const { camera, gl } = useThree();
+  useEffect(() => { changeRef.current = onChange; }, [onChange]);
+  useEffect(() => {
+    const move = (event: PointerEvent) => {
+      const operation = operationRef.current; if (!operation) return; event.preventDefault();
+      if (operation.kind === 'resize') {
+        const distance = Math.hypot(event.clientX - operation.centerX, event.clientY - operation.centerY);
+        changeRef.current({ size: THREE.MathUtils.clamp(operation.startSize * distance / operation.startDistance, .12, 1) });
+      } else {
+        const angle = Math.atan2(event.clientY - operation.centerY, event.clientX - operation.centerX);
+        const delta = THREE.MathUtils.radToDeg(Math.atan2(Math.sin(angle - operation.startAngle), Math.cos(angle - operation.startAngle)));
+        changeRef.current({ rotation: Math.round(THREE.MathUtils.clamp(operation.startRotation + delta * operation.orientation, -180, 180)) });
+      }
+    };
+    const end = () => { operationRef.current = null; gl.domElement.style.cursor = ''; };
+    window.addEventListener('pointermove', move, { passive: false }); window.addEventListener('pointerup', end); window.addEventListener('pointercancel', end);
+    return () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', end); window.removeEventListener('pointercancel', end); };
+  }, [gl.domElement]);
+  const begin = (kind: 'resize' | 'rotate', event: ThreeEvent<PointerEvent>) => {
+    event.stopPropagation(); event.nativeEvent.preventDefault(); (event.target as EventTarget & { setPointerCapture(pointerId: number): void }).setPointerCapture(event.pointerId); const group = groupRef.current; if (!group) return;
+    group.updateWorldMatrix(true, false); const rect = gl.domElement.getBoundingClientRect();
+    const project = (point: THREE.Vector3) => { const projected = group.localToWorld(point).project(camera); return { x: rect.left + (projected.x + 1) * rect.width / 2, y: rect.top + (1 - projected.y) * rect.height / 2 }; };
+    const center = project(new THREE.Vector3()); const axisX = project(new THREE.Vector3(1, 0, 0)); const axisY = project(new THREE.Vector3(0, 1, 0));
+    const determinant = (axisX.x - center.x) * (axisY.y - center.y) - (axisX.y - center.y) * (axisY.x - center.x);
+    operationRef.current = { kind, centerX: center.x, centerY: center.y, startDistance: Math.max(12, Math.hypot(event.clientX - center.x, event.clientY - center.y)), startAngle: Math.atan2(event.clientY - center.y, event.clientX - center.x), startSize: size, startRotation: rotation, orientation: determinant < 0 ? -1 : 1 };
+    gl.domElement.style.cursor = kind === 'resize' ? 'nwse-resize' : 'grabbing';
+  };
+  const side = surface === 'left-side' || surface === 'right-side'; const x = (u - .5) * enclosure.width; const z = (v - .5) * enclosure.height;
+  const position: [number, number, number] = surface === 'back' ? [x, -enclosure.depth / 2 - .06, z] : side ? [surface === 'right-side' ? enclosure.width / 2 + .06 : -enclosure.width / 2 - .06, (v - .5) * enclosure.depth, (u - .5) * enclosure.height] : [x, surfaceY + .085, z];
+  const frameRotation: [number, number, number] = surface === 'back' ? [Math.PI / 2, 0, THREE.MathUtils.degToRad(rotation)] : side ? [0, surface === 'right-side' ? Math.PI / 2 : -Math.PI / 2, THREE.MathUtils.degToRad(rotation)] : [-Math.PI / 2, 0, THREE.MathUtils.degToRad(rotation)];
+  const stroke = Math.max(.014, Math.min(width, height) * .045); const handleRadius = Math.max(.068, Math.min(.11, Math.min(width, height) * .26)); const rotateGap = handleRadius * 2.8;
+  const handleEvents = (kind: 'resize' | 'rotate') => ({ onPointerDown: (event: ThreeEvent<PointerEvent>) => begin(kind, event), onPointerMove: (event: ThreeEvent<PointerEvent>) => { event.stopPropagation(); gl.domElement.style.cursor = kind === 'resize' ? 'nwse-resize' : operationRef.current ? 'grabbing' : 'grab'; }, onPointerOut: () => { if (!operationRef.current) gl.domElement.style.cursor = ''; } });
+  const frameMaterial = <meshBasicMaterial color="#b7ff19" transparent opacity={.98} depthTest={false} depthWrite={false} toneMapped={false} />;
+  return <group ref={groupRef} position={position} rotation={frameRotation} renderOrder={12}>
+    <mesh position={[0, height / 2, .006]}><planeGeometry args={[width + stroke, stroke]} />{frameMaterial}</mesh><mesh position={[0, -height / 2, .006]}><planeGeometry args={[width + stroke, stroke]} />{frameMaterial}</mesh>
+    <mesh position={[-width / 2, 0, .006]}><planeGeometry args={[stroke, height]} />{frameMaterial}</mesh><mesh position={[width / 2, 0, .006]}><planeGeometry args={[stroke, height]} />{frameMaterial}</mesh>
+    <mesh position={[0, height / 2 + rotateGap / 2, .006]}><planeGeometry args={[stroke, rotateGap]} />{frameMaterial}</mesh>
+    <group position={[0, height / 2 + rotateGap, .012]} {...handleEvents('rotate')}><mesh><circleGeometry args={[handleRadius * 1.65, 24]} /><meshBasicMaterial transparent opacity={.001} depthTest={false} depthWrite={false} /></mesh><mesh position={[0, 0, .002]}><circleGeometry args={[handleRadius, 24]} />{frameMaterial}</mesh></group>
+    <group position={[width / 2, -height / 2, .012]} {...handleEvents('resize')}><mesh><circleGeometry args={[handleRadius * 1.65, 24]} /><meshBasicMaterial transparent opacity={.001} depthTest={false} depthWrite={false} /></mesh><mesh position={[0, 0, .002]}><circleGeometry args={[handleRadius, 24]} />{frameMaterial}</mesh></group>
+  </group>;
+}
 function DirectStickerSurface({ graphic, size, surfaceY, onChange }: { graphic: UserGraphic; size: { width: number; height: number; depth: number }; surfaceY: number; onChange: (graphic: UserGraphic) => void }) {
   const mark: PedalMark = { ...defaultMark, enabled: true, surface: graphic.surface, u: graphic.u, v: graphic.v };
   return <DirectMarkSurface mark={mark} size={size} surfaceY={surfaceY} onChange={next => onChange({ ...graphic, surface: next.surface, u: next.u, v: next.v })} />;
+}
+function DirectSignatureEditor({ mark, size, surfaceY, onChange }: { mark: PedalMark; size: { width: number; height: number; depth: number }; surfaceY: number; onChange: (mark: PedalMark) => void }) {
+  const side = mark.surface === 'left-side' || mark.surface === 'right-side'; const width = (side ? size.height : size.width) * mark.size; const height = Math.max(side ? .11 : .14, width / 4.2);
+  return <><DirectMarkSurface mark={mark} size={size} surfaceY={surfaceY} onChange={onChange} />{mark.enabled && mark.text.trim() && <DirectTransformFrame surface={mark.surface} u={mark.u} v={mark.v} width={width} height={height} rotation={mark.rotation} size={mark.size} enclosure={size} surfaceY={surfaceY} onChange={patch => onChange({ ...mark, enabled: true, ...patch })} />}</>;
+}
+function DirectGraphicEditor({ graphic, size, surfaceY, onChange }: { graphic: UserGraphic; size: { width: number; height: number; depth: number }; surfaceY: number; onChange: (graphic: UserGraphic) => void }) {
+  const side = graphic.surface === 'left-side' || graphic.surface === 'right-side'; const ratio = Math.max(.35, Math.min(2.85, graphic.width / graphic.height)); const width = (side ? size.height : size.width) * graphic.size; const height = Math.min(side ? size.depth : size.height, width / ratio);
+  return <><DirectStickerSurface graphic={graphic} size={size} surfaceY={surfaceY} onChange={onChange} /><DirectTransformFrame surface={graphic.surface} u={graphic.u} v={graphic.v} width={width} height={height} rotation={graphic.rotation} size={graphic.size} enclosure={size} surfaceY={surfaceY} onChange={patch => onChange({ ...graphic, ...patch })} /></>;
 }
 function BackPanel({ size }: { size: { width: number; height: number; depth: number } }) {
   return <group position={[0, -size.depth / 2 - .025, 0]}>
@@ -939,8 +991,8 @@ function PedalModel({ pedal, runtimeMode = 'play', userGraphic, mark, inspectSur
     {jackLayout === 'sides' && !tinyEnclosure && <><SurfaceText text="OUTPUT" position={[-size.width * .37, surfaceY, -.16]} width={.56} font={utilityFont} outline={false} /><SurfaceText text="INPUT" position={[size.width * .37, surfaceY, -.16]} width={.5} font={utilityFont} outline={false} /></>}
     {ioChannels === 'mono' && jackLayout === 'hybrid' && <><SurfaceText text="OUTPUT" position={[-size.width * .37, surfaceY, -.16]} width={.56} /><SurfaceText text="INPUT" position={[size.width * .27, surfaceY, -size.height * .37]} width={.5} /></>}
     {!tinyEnclosure && <SurfaceText text="DC IN" position={[powerPlacement === 'right-near-input' ? size.width * .37 : powerPlacement === 'top-offset' ? size.width * .14 : 0, surfaceY, powerPlacement === 'right-near-input' ? .4 : -size.height * .41]} width={.42} color={graphicColor} font={utilityFont} outline={false} />}
-    {directMarkEditing && finishTool === 'signature' && mark && onMarkChange && <DirectMarkSurface mark={mark} size={size} surfaceY={surfaceY} onChange={onMarkChange} />}
-    {directMarkEditing && finishTool === 'sticker' && userGraphic && onGraphicChange && <DirectStickerSurface graphic={userGraphic} size={size} surfaceY={surfaceY} onChange={onGraphicChange} />}
+    {directMarkEditing && finishTool === 'signature' && mark && onMarkChange && <DirectSignatureEditor mark={mark} size={size} surfaceY={surfaceY} onChange={onMarkChange} />}
+    {directMarkEditing && finishTool === 'sticker' && userGraphic && onGraphicChange && <DirectGraphicEditor graphic={userGraphic} size={size} surfaceY={surfaceY} onChange={onGraphicChange} />}
     {mark && <SignatureMark mark={mark} size={size} surfaceY={surfaceY} />}
   </group></group>;
 }
@@ -971,20 +1023,14 @@ function ForgeMachine({ pedal, reduce }: { pedal: Pedal | null; reduce: boolean 
     <pointLight position={[0, .4, 0]} color={color} intensity={3.2} distance={6} decay={1.8} />
   </group>;
 }
-function CameraController({ enabled, home, resetToken, autoRotate, onInteract }: { enabled: boolean; home: [number, number, number]; resetToken: number; autoRotate: boolean; onInteract?: () => void }) {
+function CameraController({ enabled, home, resetToken, autoRotate }: { enabled: boolean; home: [number, number, number]; resetToken: number; autoRotate: boolean }) {
   const { camera, gl, size } = useThree(); const controls = useMemo(() => new OrbitControls(camera, gl.domElement), [camera, gl.domElement]);
   const fittedHome = useMemo<[number, number, number]>(() => {
     const portraitScale = size.width < size.height ? 1.16 : 1;
     return home.map(value => value * portraitScale) as [number, number, number];
   }, [home, size.height, size.width]);
   useEffect(() => { controls.enableDamping = true; controls.dampingFactor = .08; controls.enablePan = false; controls.minPolarAngle = .08; controls.maxPolarAngle = Math.PI - .08; controls.touches.ONE = THREE.TOUCH.ROTATE; controls.touches.TWO = THREE.TOUCH.DOLLY_ROTATE; return () => controls.dispose(); }, [controls]);
-  useEffect(() => { controls.enabled = enabled; controls.autoRotate = enabled && autoRotate; controls.autoRotateSpeed = .75; controls.minDistance = Math.hypot(...fittedHome) * .5; controls.maxDistance = Math.hypot(...fittedHome) * 1.6; gl.domElement.style.touchAction = 'none'; }, [controls, enabled, fittedHome, autoRotate, gl.domElement]);
-  useEffect(() => {
-    if (!enabled || !onInteract) return;
-    const element = gl.domElement; const down = () => onInteract();
-    element.addEventListener('pointerdown', down);
-    return () => element.removeEventListener('pointerdown', down);
-  }, [enabled, gl.domElement, onInteract]);
+  useEffect(() => { controls.enabled = enabled; controls.autoRotate = enabled && autoRotate; controls.autoRotateSpeed = .75; controls.minDistance = Math.hypot(...fittedHome) * .5; controls.maxDistance = Math.hypot(...fittedHome) * 1.6; }, [controls, enabled, fittedHome, autoRotate]);
   useEffect(() => { camera.position.set(...fittedHome); controls.target.set(0, 0, 0); controls.update(); }, [camera, controls, fittedHome, resetToken]);
   useFrame(() => controls.update()); return null;
 }
@@ -1004,7 +1050,7 @@ function EmptyStage({ viewMode }: { viewMode: ViewMode }) {
     <mesh position={[0, .12, 0]} rotation={[Math.PI / 2, 0, 0]}><torusGeometry args={[1.35, .018, 8, 64]} /><meshBasicMaterial color={viewMode === 'studio' ? '#808780' : '#6f845d'} transparent opacity={.4} /></mesh>
   </group>;
 }
-function Stage({ pedal, phase, canvasRef, reduce, resetToken, viewMode, runtimeMode, userGraphic, mark, inspectSurface, autoRotate, directMarkEditing = false, finishTool = 'signature', onMarkChange, onGraphicChange, onViewInteract }: { pedal: Pedal | null; phase: GachaState; canvasRef: React.MutableRefObject<HTMLCanvasElement | null>; reduce: boolean; resetToken: number; viewMode: ViewMode; runtimeMode: RuntimeMode; userGraphic?: UserGraphic | null; mark?: PedalMark; inspectSurface: MarkSurface; autoRotate: boolean; directMarkEditing?: boolean; finishTool?: 'signature' | 'sticker'; onMarkChange?: (mark: PedalMark) => void; onGraphicChange?: (graphic: UserGraphic) => void; onViewInteract?: () => void }) {
+function Stage({ pedal, phase, canvasRef, reduce, resetToken, viewMode, runtimeMode, userGraphic, mark, inspectSurface, autoRotate, directMarkEditing = false, finishTool = 'signature', onMarkChange, onGraphicChange }: { pedal: Pedal | null; phase: GachaState; canvasRef: React.MutableRefObject<HTMLCanvasElement | null>; reduce: boolean; resetToken: number; viewMode: ViewMode; runtimeMode: RuntimeMode; userGraphic?: UserGraphic | null; mark?: PedalMark; inspectSurface: MarkSurface; autoRotate: boolean; directMarkEditing?: boolean; finishTool?: 'signature' | 'sticker'; onMarkChange?: (mark: PedalMark) => void; onGraphicChange?: (graphic: UserGraphic) => void }) {
   const topView = phase === 'revealing' || phase === 'result';
   const floorless = viewMode === 'white' || viewMode === 'dark';
   const extent = pedal ? Math.max(enclosureDimensions[pedal.enclosure].width, enclosureDimensions[pedal.enclosure].height) : 4; const distance = extent * 1.42;
@@ -1013,7 +1059,7 @@ function Stage({ pedal, phase, canvasRef, reduce, resetToken, viewMode, runtimeM
   const floorY = topView ? -.62 : -2.2;
   return <Canvas className="forge-canvas" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} shadows dpr={[1, 1.5]} gl={{ preserveDrawingBuffer: true, antialias: true }} onCreated={({ gl, camera }) => { canvasRef.current = gl.domElement; camera.lookAt(0, 0, 0); }} fallback={<div className="canvas-fallback">3D PREVIEW UNAVAILABLE</div>} camera={{ position: home, fov: viewMode === 'hero' ? 34 : topView ? 36 : 38 }}>
     <RenderSettings viewMode={viewMode} />
-    <CameraController enabled={phase === 'result' && !directMarkEditing} home={home} resetToken={resetToken} autoRotate={autoRotate} onInteract={onViewInteract} />
+    <CameraController enabled={phase === 'result' && !directMarkEditing} home={home} resetToken={resetToken} autoRotate={autoRotate} />
     <color attach="background" args={[background]} />
     <hemisphereLight color={viewMode === 'white' ? '#ffffff' : viewMode === 'studio' ? '#ffffff' : '#dce7df'} groundColor={viewMode === 'white' ? '#e4e5df' : viewMode === 'studio' ? '#d8d8d3' : '#171c18'} intensity={viewMode === 'white' ? 1.65 : viewMode === 'studio' ? 1.5 : .72} />
     <ambientLight intensity={viewMode === 'white' ? .52 : viewMode === 'dark' ? .12 : viewMode === 'studio' ? .42 : .18} />
@@ -1048,7 +1094,7 @@ function FinishEditor({ mark, graphic, error, tool, open, onTool, onClose, onMar
         <label>SIZE <output>{Math.round(mark.size * 100)}%</output><input type="range" min=".12" max="1" step=".01" value={mark.size} onChange={event => onMarkChange({ ...mark, size: Number(event.target.value) })} /></label>
         <label>ROTATE <output>{mark.rotation}°</output><input type="range" min="-180" max="180" step="1" value={mark.rotation} onChange={event => onMarkChange({ ...mark, rotation: Number(event.target.value) })} /></label>
       </div>
-      <p className="direct-mark-status">全面配置可 · 部品の下にも配置できます</p>
+      <p className="direct-mark-status">本体上の枠：右下でサイズ / 上で角度 · 本体をドラッグして移動</p>
       <div className="signature-actions"><button disabled={!mark.text.trim()} onClick={() => { onMarkChange({ ...mark, enabled: true }); onClose(); }}>確定</button><button className="outline" onClick={onMarkRemove}>署名しない</button></div>
     </> : <>
       {!graphic ? <label className="graphic-drop sticker-drop">{fileInput}<strong>＋ ステッカー画像を選択</strong><span>PNG / JPG / WEBP · 最大15MB</span></label> : <>
@@ -1060,7 +1106,7 @@ function FinishEditor({ mark, graphic, error, tool, open, onTool, onClose, onMar
         </div>
       </>}
       {error && <p className="graphic-error" role="alert">{error}</p>}
-      <p className="direct-mark-status">3D本体をクリック / ドラッグ · 部品の下にも配置できます</p>
+      <p className="direct-mark-status">本体上の枠：右下でサイズ / 上で角度 · 本体をドラッグして移動</p>
       <div className="signature-actions"><button disabled={!graphic} onClick={onClose}>確定</button>{graphic && <button className="outline" onClick={onGraphicRemove}>ステッカーを外す</button>}</div>
       <p className="graphic-privacy">画像はこのブラウザ内だけで処理され、外部へ送信されません。</p>
     </>}
@@ -1200,10 +1246,8 @@ const storedBrand = (): BrandProfile => { try { const value = localStorage.getIt
 const similarityScore = (a: Pedal, b: Pedal) => [a.enclosure === b.enclosure, a.knobs.length === b.knobs.length, a.controlVariant === b.controlVariant, a.knobStyle === b.knobStyle, a.designArchetype === b.designArchetype, a.namingPattern === b.namingPattern, a.promoDirection?.layout === b.promoDirection?.layout, a.motifType === b.motifType, a.motifCategory === b.motifCategory, a.palette?.[1] === b.palette?.[1]].filter(Boolean).length;
 export default function App() {
   const [brandProfile, setBrandProfile] = useState<BrandProfile>(storedBrand); const [inputSources, setInputSources] = useState<InputSource[]>([]); const [effectType, setEffectType] = useState<EffectTypeChoice>('random'); const [sound, setSound] = useState<ToneChoice>('random'); const [colorChoice, setColor] = useState<FinishChoice>('random'); const mood: MoodChoice = 'random'; const [phase, setPhase] = useState<GachaState>('idle'); const [workflow, setWorkflow] = useState<WorkflowPhase>('select'); const [forgeStep, setForgeStep] = useState('思想を選択してください'); const [pedal, setPedal] = useState<Pedal | null>(null); const [collection, setCollection] = useState<Pedal[]>(stored); const [drawer, setDrawer] = useState(false); const [notice, setNotice] = useState(''); const [reduce, setReduce] = useState(false); const [viewReset, setViewReset] = useState(0); const [manualReset, setManualReset] = useState(0); const [viewMode, setViewMode] = useState<ViewMode>('stage'); const [runtimeMode, setRuntimeMode] = useState<RuntimeMode>('off'); const [coverImage, setCoverImage] = useState(''); const [userGraphic, setUserGraphic] = useState<UserGraphic | null>(null); const [graphicError, setGraphicError] = useState(''); const [finishTool, setFinishTool] = useState<'signature' | 'sticker'>('signature'); const [marks, setMarks] = useState<Record<string, PedalMark>>(storedMarks); const [markEditorOpen, setMarkEditorOpen] = useState(false); const [inspectSurface, setInspectSurface] = useState<MarkSurface>('front'); const canvasRef = useRef<HTMLCanvasElement | null>(null); const resultRef = useRef<HTMLElement>(null); const stageRef = useRef<HTMLElement>(null);
-  const soundEnabled = true; const [autoRotate, setAutoRotate] = useState(false); const [viewHintVisible, setViewHintVisible] = useState(true); const viewHintTimerRef = useRef<number | null>(null);
+  const soundEnabled = true; const [autoRotate, setAutoRotate] = useState(false);
   const forgeAudioRef = useRef<{ context: AudioContext; rumble?: { gain: GainNode; sources: AudioScheduledSourceNode[] } } | null>(null);
-  const showViewHint = () => { setViewHintVisible(true); if (viewHintTimerRef.current !== null) window.clearTimeout(viewHintTimerRef.current); viewHintTimerRef.current = window.setTimeout(() => setViewHintVisible(false), 1800); };
-  useEffect(() => { if (phase !== 'result') return; setViewHintVisible(true); if (viewHintTimerRef.current !== null) window.clearTimeout(viewHintTimerRef.current); viewHintTimerRef.current = window.setTimeout(() => setViewHintVisible(false), 3600); return () => { if (viewHintTimerRef.current !== null) window.clearTimeout(viewHintTimerRef.current); }; }, [phase]);
   const getForgeAudio = () => { if (!soundEnabled || typeof window === 'undefined') return null; let current = forgeAudioRef.current; if (!current) { current = { context: new AudioContext() }; forgeAudioRef.current = current; } if (current.context.state === 'suspended') void current.context.resume(); return current; };
   const stopForgeRumble = (release = .08) => { const current = forgeAudioRef.current; const rumble = current?.rumble; if (!current || !rumble) return; const now = current.context.currentTime; rumble.gain.gain.cancelScheduledValues(now); rumble.gain.gain.setTargetAtTime(.0001, now, Math.max(.015, release)); rumble.sources.forEach(source => { try { source.stop(now + release * 4 + .06); } catch { /* already stopped */ } }); current.rumble = undefined; };
   const startForgeRumble = () => { const audio = getForgeAudio(); if (!audio) return; stopForgeRumble(0); const { context } = audio; const now = context.currentTime; const gain = context.createGain(); const filter = context.createBiquadFilter(); const low = context.createOscillator(); const body = context.createOscillator(); const tremolo = context.createOscillator(); const tremoloDepth = context.createGain(); low.type = 'sawtooth'; low.frequency.setValueAtTime(43, now); low.frequency.linearRampToValueAtTime(58, now + 2.6); body.type = 'sine'; body.frequency.setValueAtTime(67, now); body.detune.value = -9; tremolo.frequency.value = 8.4; tremoloDepth.gain.value = .022; filter.type = 'lowpass'; filter.frequency.value = 210; filter.Q.value = 5; gain.gain.setValueAtTime(.0001, now); gain.gain.exponentialRampToValueAtTime(.085, now + .34); tremolo.connect(tremoloDepth).connect(gain.gain); low.connect(filter); body.connect(filter); filter.connect(gain).connect(context.destination); low.start(now); body.start(now); tremolo.start(now); audio.rumble = { gain, sources: [low, body, tremolo] }; };
@@ -1305,18 +1349,17 @@ export default function App() {
     <div className="forge-divider" aria-hidden="true"><span>DESCEND TO THE FORGING CHAMBER</span></div>
     <section id="forging-stage" ref={stageRef} className={'stage-wrap phase-' + phase + ' view-' + viewMode + (workflow === 'forged' || workflow === 'finishing' ? ' has-finish-rail' : '') + (workflow === 'finishing' ? ' is-editing' : '')}>
       <div className="workflow-location"><span>02 / FORGE</span><b>錬成</b></div><div className="stage-label">{phase === 'idle' ? 'NO PEDAL YET / SELECT PARAMETERS' : phase === 'result' ? 'ALCHEMY COMPLETE / DRAG 360° / WHEEL TO ZOOM' : forgeStep}</div>
-      <Stage pedal={pedal} phase={phase} canvasRef={canvasRef} reduce={reduce} resetToken={viewReset} viewMode={viewMode} runtimeMode={runtimeMode} userGraphic={userGraphic} mark={activeMark} inspectSurface={inspectSurface} autoRotate={autoRotate} directMarkEditing={workflow === 'finishing'} finishTool={finishTool} onMarkChange={changeMark} onGraphicChange={next => setUserGraphic(next)} onViewInteract={showViewHint} />
-      {phase === 'result' && <div className={'inspection-frame' + (viewHintVisible ? ' is-hinting' : '')} aria-hidden="true">
+      <Stage pedal={pedal} phase={phase} canvasRef={canvasRef} reduce={reduce} resetToken={viewReset} viewMode={viewMode} runtimeMode={runtimeMode} userGraphic={userGraphic} mark={activeMark} inspectSurface={inspectSurface} autoRotate={autoRotate} directMarkEditing={workflow === 'finishing'} finishTool={finishTool} onMarkChange={changeMark} onGraphicChange={next => setUserGraphic(next)} />
+      {phase === 'result' && <div className="inspection-frame" aria-hidden="true">
         <div className="inspection-frame-head"><b>360° VIEW</b><span>↔ DRAG TO ROTATE</span></div>
         <i className="corner corner-nw" /><i className="corner corner-ne" /><i className="corner corner-sw" /><i className="corner corner-se" />
-        <div className="drag-hint">↔ <span>上下左右にドラッグして360°回転</span></div>
         <small>このエリア内ではページスクロールできません</small>
       </div>}
       {phase === 'result' && <><div className="stage-control-panel">
         <div className="mode-switch" aria-label="背景"><span>BACKGROUND</span>{(['stage', 'white', 'dark'] as ViewMode[]).map(mode => <button key={mode} className={viewMode === mode ? 'active' : ''} onClick={() => { setViewMode(mode); setViewReset(v => v + 1); }}>{mode.toUpperCase()}</button>)}</div>
         <div className="mode-switch" aria-label="撮影背景"><span>PHOTO</span>{(['studio', 'hero'] as ViewMode[]).map(mode => <button key={mode} className={viewMode === mode ? 'active' : ''} onClick={() => { setViewMode(mode); setViewReset(v => v + 1); }}>{mode.toUpperCase()}</button>)}</div>
         <div className="mode-switch runtime-switch" aria-label="稼働状態"><span>POWER</span>{(['off', 'on', 'play'] as RuntimeMode[]).map(mode => <button key={mode} className={runtimeMode === mode ? 'active' : ''} onClick={() => setRuntimeMode(mode)}>{mode.toUpperCase()}</button>)}</div>
-      </div><div className="view-control-panel" aria-label="3Dビュー操作"><span>VIEW CONTROL</span><button className={!autoRotate ? 'active' : ''} onClick={() => { setAutoRotate(false); showViewHint(); }}>↔ DRAG</button><button className={autoRotate ? 'active' : ''} onClick={() => { setAutoRotate(true); showViewHint(); }}>⟳ AUTO</button></div><button className="view-reset" onClick={() => setViewReset(v => v + 1)}>視点を戻す</button></>}
+      </div><div className="view-control-panel" aria-label="3Dビュー操作"><span>VIEW CONTROL</span><button className={!autoRotate ? 'active' : ''} onClick={() => setAutoRotate(false)}>↔ DRAG</button><button className={autoRotate ? 'active' : ''} onClick={() => setAutoRotate(true)}>⟳ AUTO</button></div><button className="view-reset" onClick={() => setViewReset(v => v + 1)}>視点を戻す</button></>}
       <p className="stage-caption">{phase === 'result' && pedal ? `${pedal.brand?.manufacturerName || pedal.brandLabel || 'FURNACE AUDIO WORKS'} / ${enclosureDimensions[pedal.enclosure].label} / ${pedal.condition || 'FACTORY NEW'}` : 'FORGING CHAMBER / AWAITING MATERIALS'}</p>
       {phase === 'revealing' && <div className="reveal-flash" aria-hidden="true" />}
       {phase === 'result' && pedal && workflow === 'forged' && <aside className="stage-finish-card">
