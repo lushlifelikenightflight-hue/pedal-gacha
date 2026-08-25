@@ -791,21 +791,28 @@ function resolvedGraphicPlacement(graphic: UserGraphic, knobCount: number): Excl
   if (knobCount <= 2) return graphic.usageMode === 'preserve' ? 'panel' : 'full';
   return graphic.usageMode === 'transform' ? 'panel' : 'one-point';
 }
-function maskedStickerTexture(graphic: UserGraphic, surfaceWidth: number, surfaceHeight: number, cornerRadius: number) {
+function createMaskedStickerTexture(surfaceWidth: number, surfaceHeight: number, cornerRadius: number) {
   const canvas = document.createElement('canvas'); canvas.width = 1024; canvas.height = Math.max(96, Math.round(1024 * surfaceHeight / surfaceWidth));
   const context = canvas.getContext('2d')!; const texture = new THREE.CanvasTexture(canvas); texture.colorSpace = THREE.SRGBColorSpace; texture.anisotropy = 4;
-  const radius = Math.min(canvas.width, canvas.height) * cornerRadius; const image = new Image();
-  image.onload = () => {
-    context.clearRect(0, 0, canvas.width, canvas.height); context.save(); context.beginPath(); context.roundRect(0, 0, canvas.width, canvas.height, radius); context.clip();
-    const ratio = Math.max(.35, Math.min(2.85, graphic.width / graphic.height)); const drawWidth = canvas.width * graphic.size; const drawHeight = drawWidth / ratio;
-    context.translate(graphic.u * canvas.width, (1 - graphic.v) * canvas.height); context.rotate(-THREE.MathUtils.degToRad(graphic.rotation)); context.globalAlpha = graphic.opacity;
-    context.drawImage(image, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight); context.restore(); texture.needsUpdate = true;
-  };
-  image.src = graphic.textureUrl; return texture;
+  return { canvas, context, texture, radius: Math.min(canvas.width, canvas.height) * cornerRadius };
 }
 function StickerMark({ graphic, size, surfaceY, layer = 0 }: { graphic: UserGraphic; size: { width: number; height: number; depth: number }; surfaceY: number; layer?: number }) {
   const side = graphic.surface === 'left-side' || graphic.surface === 'right-side'; const surfaceWidth = side ? size.height : size.width; const surfaceHeight = side ? size.depth : size.height;
-  const texture = useMemo(() => graphic.clipping === 'surface-mask' ? maskedStickerTexture(graphic, surfaceWidth, surfaceHeight, side || graphic.surface === 'back' ? .025 : .055) : new THREE.TextureLoader().load(graphic.textureUrl), [graphic, side, surfaceHeight, surfaceWidth]);
+  const maskedResource = useMemo(() => graphic.clipping === 'surface-mask' ? createMaskedStickerTexture(surfaceWidth, surfaceHeight, side || graphic.surface === 'back' ? .025 : .055) : null, [graphic.clipping, graphic.surface, side, surfaceHeight, surfaceWidth]);
+  const sourceImage = useMemo(() => { if (!maskedResource) return null; const image = new Image(); image.src = graphic.textureUrl; return image; }, [graphic.textureUrl, maskedResource]);
+  const texture = useMemo(() => maskedResource?.texture || new THREE.TextureLoader().load(graphic.textureUrl), [graphic.textureUrl, maskedResource]);
+  useEffect(() => {
+    if (!maskedResource || !sourceImage) return;
+    const { canvas, context, radius } = maskedResource;
+    const draw = () => {
+      context.clearRect(0, 0, canvas.width, canvas.height); context.save(); context.beginPath(); context.roundRect(0, 0, canvas.width, canvas.height, radius); context.clip();
+      const ratio = Math.max(.35, Math.min(2.85, graphic.width / graphic.height)); const drawWidth = canvas.width * graphic.size; const drawHeight = drawWidth / ratio;
+      context.translate(graphic.u * canvas.width, (1 - graphic.v) * canvas.height); context.rotate(-THREE.MathUtils.degToRad(graphic.rotation)); context.globalAlpha = graphic.opacity;
+      context.drawImage(sourceImage, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight); context.restore(); texture.needsUpdate = true;
+    };
+    if (sourceImage.complete && sourceImage.naturalWidth) draw(); else sourceImage.addEventListener('load', draw);
+    return () => sourceImage.removeEventListener('load', draw);
+  }, [graphic.height, graphic.opacity, graphic.rotation, graphic.size, graphic.u, graphic.v, graphic.width, maskedResource, sourceImage, texture]);
   useEffect(() => { texture.colorSpace = THREE.SRGBColorSpace; texture.needsUpdate = true; return () => texture.dispose(); }, [texture]);
   if (!graphic.visible) return null;
   const lift = .012 + layer * .0015; const material = <meshBasicMaterial map={texture} transparent opacity={graphic.opacity} depthWrite={false} toneMapped={false} polygonOffset polygonOffsetFactor={-2 - layer} />;
@@ -1361,9 +1368,9 @@ export default function App() {
   const activeFinish = pedal ? finishes[pedal.id] || emptyFinish() : emptyFinish(); const activeMark = activeFinish.signatures.find(mark => mark.surface === inspectSurface) || createDefaultMark(inspectSurface); const activeGraphic = activeFinish.stickers.find(graphic => graphic.id === selectedStickerId) || activeFinish.stickers.find(graphic => graphic.surface === inspectSurface) || null; const currentHistory = pedal ? historyRef.current[pedal.id] : undefined; void historyVersion;
   useEffect(() => { const q = matchMedia('(prefers-reduced-motion: reduce)'); setReduce(q.matches); const fn = () => setReduce(q.matches); q.addEventListener('change', fn); return () => q.removeEventListener('change', fn); }, []);
   useEffect(() => { localStorage.setItem('pedal-gacha-v2', JSON.stringify(collection)); }, [collection]);
-  useEffect(() => { try { localStorage.setItem('pedal-gacha-finish-v3', JSON.stringify(finishes)); } catch { setNotice('仕上げデータを保存できません。画像サイズを小さくしてください。'); } }, [finishes]);
+  useEffect(() => { const timer = window.setTimeout(() => { try { localStorage.setItem('pedal-gacha-finish-v3', JSON.stringify(finishes)); } catch { setNotice('仕上げデータを保存できません。画像を減らすか、別の画像を選択してください。'); } }, 250); return () => window.clearTimeout(timer); }, [finishes]);
   useEffect(() => { localStorage.setItem('pedal-gacha-brand-v1', JSON.stringify(brandProfile)); }, [brandProfile]);
-  const commitFinish = (updater: (finish: PedalFinish) => PedalFinish) => { if (!pedal) return; setFinishes(current => { const previous = current[pedal.id] || emptyFinish(); const next = updater(previous); if (JSON.stringify(previous) === JSON.stringify(next)) return current; const history = historyRef.current[pedal.id] || { past: [], future: [] }; historyRef.current[pedal.id] = { past: [...history.past, previous].slice(-50), future: [] }; setHistoryVersion(value => value + 1); return { ...current, [pedal.id]: next }; }); setViewReset(value => value + 1); setEditorialCoverImage(''); setEditorialTopImage(''); };
+  const commitFinish = (updater: (finish: PedalFinish) => PedalFinish) => { if (!pedal) return; setFinishes(current => { const previous = current[pedal.id] || emptyFinish(); const next = updater(previous); if (previous === next || (previous.signatures === next.signatures && previous.stickers === next.stickers)) return current; const history = historyRef.current[pedal.id] || { past: [], future: [] }; historyRef.current[pedal.id] = { past: [...history.past, previous].slice(-50), future: [] }; setHistoryVersion(value => value + 1); return { ...current, [pedal.id]: next }; }); setEditorialCoverImage(''); setEditorialTopImage(''); };
   const selectGraphic = (file: File, replace: boolean) => {
     setGraphicError(''); if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) return setGraphicError('PNG / JPG / WEBPを選択してください。'); if (file.size > 15 * 1024 * 1024) return setGraphicError('画像は15MB以下にしてください。');
     if (!replace && activeFinish.stickers.length >= 5) return setGraphicError('ステッカーは最大5枚です。');
