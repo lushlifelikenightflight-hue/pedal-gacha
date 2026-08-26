@@ -2,7 +2,7 @@ import { enclosureDimensions, generate, packageTemplateFor } from '../src/App';
 import { createBrandProfile } from '../src/design-engine';
 import { createHybridLayoutPlan } from '../src/layout-engine';
 
-const effectTypes = ['random', 'boost', 'drive', 'fuzz', 'compressor', 'eq-filter', 'modulation', 'phaser', 'tremolo', 'delay', 'reverb', 'pitch', 'synth', 'looper', 'glitch', 'experimental', 'multi'] as const;
+const effectTypes = ['random', 'boost', 'drive', 'fuzz', 'compressor', 'eq-filter', 'modulation', 'phaser', 'tremolo', 'delay', 'reverb', 'pitch', 'synth', 'tuner', 'looper', 'glitch', 'experimental', 'multi'] as const;
 const animalTypes = ['cat', 'moth', 'dog', 'rabbit', 'bird', 'fish', 'bear', 'fox'] as const;
 const eqPresets = ['eq-2-band', 'eq-3-band', 'eq-5-band', 'eq-7-band'] as const;
 const packageTemplates = new Map<string, number>();
@@ -13,6 +13,7 @@ const failures: string[] = [];
 for (let index = 0; index < 5000; index += 1) {
   const input = { effectType: effectTypes[index % effectTypes.length], sound: 'random' as const, mood: 'random' as const, colorChoice: 'random' as const, seed: `generation-audit-${index}`, brand };
   const pedal = generate(input); counts.total += 1; const packageTemplate = packageTemplateFor(pedal); packageTemplates.set(packageTemplate, (packageTemplates.get(packageTemplate) || 0) + 1);
+  if (input.effectType === 'tuner' && (pedal.knobs.length !== 0 || pedal.footswitches !== 1 || pedal.display !== 'oled' || pedal.toggleCount !== 0)) failures.push('invalid tuner hardware');
   if (pedal.motifCategory === 'animal') { counts.animal.set(pedal.motifType, (counts.animal.get(pedal.motifType) || 0) + 1); if (!['ONE POINT', 'PANEL', 'TYPOGRAPHY'].includes(pedal.graphicMode || '')) counts.animalHidden += 1; }
   if (pedal.footswitchStyle === 'large-lower-paddle') { counts.paddle += 1; if (!['compact', 'standard125', 'tall'].includes(pedal.enclosure) || pedal.footswitches !== 1 || pedal.controlLayoutMode !== 'knob-only') failures.push(`invalid paddle: ${pedal.seed}`); }
   if (pedal.controlLayoutMode && pedal.controlLayoutMode !== 'knob-only') {
