@@ -543,7 +543,9 @@ function roundedTopFaceGeometry(width: number, height: number) {
   shape.quadraticCurveTo(width / 2, height / 2, width / 2 - radius, height / 2); shape.lineTo(-width / 2 + radius, height / 2);
   shape.quadraticCurveTo(-width / 2, height / 2, -width / 2, height / 2 - radius); shape.lineTo(-width / 2, -height / 2 + radius);
   shape.quadraticCurveTo(-width / 2, -height / 2, -width / 2 + radius, -height / 2);
-  const geometry = new THREE.ShapeGeometry(shape, 24); geometry.rotateX(-Math.PI / 2); return geometry;
+  const geometry = new THREE.ShapeGeometry(shape, 24); const positions = geometry.getAttribute('position'); const uvs = geometry.getAttribute('uv');
+  for (let index = 0; index < positions.count; index += 1) uvs.setXY(index, positions.getX(index) / width + .5, positions.getY(index) / height + .5);
+  uvs.needsUpdate = true; geometry.rotateX(-Math.PI / 2); return geometry;
 }
 function SheetDesignArtwork({ source, index, size, surfaceY, placement = 'center-small' }: { source: 'motif-sheet' | 'illustration-sheet'; index: number; size: { width: number; height: number }; surfaceY: number; placement?: MotifPlacement }) {
   const cellCount = source === 'motif-sheet' ? 25 : 9; const resolvedIndex = Math.abs(index) % cellCount;
