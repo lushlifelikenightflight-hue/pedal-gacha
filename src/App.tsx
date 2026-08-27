@@ -537,7 +537,8 @@ function MaximalArtwork({ pedal, size, surfaceY }: { pedal: Pedal; size: { width
 function SheetDesignArtwork({ source, index, size, surfaceY, placement = 'center-small' }: { source: 'motif-sheet' | 'illustration-sheet'; index: number; size: { width: number; height: number }; surfaceY: number; placement?: MotifPlacement }) {
   const columns = source === 'motif-sheet' ? 5 : 3; const rows = columns; const cellCount = columns * rows; const resolvedIndex = Math.abs(index) % cellCount;
   const texture = useMemo(() => {
-    const next = new THREE.TextureLoader().load(source === 'motif-sheet' ? '/pedal-forge-motif-grid-keyed.webp' : '/pedal-forge-illustration-grid.webp');
+    const assetName = source === 'motif-sheet' ? 'pedal-forge-motif-grid-keyed.webp' : 'pedal-forge-illustration-grid.webp';
+    const next = new THREE.TextureLoader().load(new URL(assetName, window.location.href).href);
     const cellWidth = 1 / columns; const cellHeight = 1 / rows; const inset = source === 'motif-sheet' ? .012 : .018; const column = resolvedIndex % columns; const row = Math.floor(resolvedIndex / columns);
     next.colorSpace = THREE.SRGBColorSpace; next.wrapS = THREE.ClampToEdgeWrapping; next.wrapT = THREE.ClampToEdgeWrapping;
     next.repeat.set(cellWidth - inset * 2, cellHeight - inset * 2); next.offset.set(column * cellWidth + inset, 1 - (row + 1) * cellHeight + inset);
@@ -703,8 +704,8 @@ function TunerDisplay({ width, depth, color, runtimeMode }: { width: number; dep
     <mesh castShadow><boxGeometry args={[width + .14, .095, depth + .12]} /><meshStandardMaterial color="#050605" metalness={.62} roughness={.2} /></mesh>
     <mesh position={[0, .058, 0]}><boxGeometry args={[width, .025, depth]} /><meshPhysicalMaterial color="#020403" roughness={.06} clearcoat={.86} emissive={color} emissiveIntensity={active ? .2 : 0} /></mesh>
     {active && <>
-      <SurfaceText text="A  440" position={[0, .086, -depth * .32]} width={width * .34} color={color} outline={false} />
-      <SurfaceText text="E" position={[0, .09, -depth * .04]} width={Math.min(width * .48, depth * .62)} color="#f4f1e6" />
+      <SurfaceText text="A  440" position={[-width * .31, .086, -depth * .39]} width={Math.min(width * .28, depth * .72)} color={color} outline={false} />
+      <SurfaceText text="E" position={[0, .09, -depth * .1]} width={Math.min(width * 1.9, depth * 2.15)} color="#f4f1e6" />
       <group position={[0, .09, depth * .24]}>{Array.from({ length: 9 }, (_, index) => { const centered = index === 4; return <mesh key={index} position={[(index - 4) * width * .085, 0, 0]}><boxGeometry args={[width * .035, .016, centered ? depth * .18 : depth * .1]} /><meshBasicMaterial color={centered ? '#55ff7a' : color} toneMapped={false} /></mesh>; })}</group>
       <group ref={needle} position={[0, .1, depth * .16]}><mesh><boxGeometry args={[width * .055, .02, depth * .27]} /><meshBasicMaterial color="#f4f1e6" toneMapped={false} /></mesh></group>
       <SurfaceText text="-50     CENT     +50" position={[0, .086, depth * .4]} width={width * .72} color={color} outline={false} />
