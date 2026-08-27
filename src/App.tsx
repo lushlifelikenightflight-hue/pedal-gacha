@@ -30,6 +30,8 @@ type PowerPlacement = 'top' | 'right-near-input' | 'top-offset';
 type ControlLayout = 'minimal2' | 'classic3' | 'dual4' | 'dense6' | 'dense8';
 type MaterialStyle = 'powder' | 'matte' | 'semi-gloss' | 'high-gloss' | 'metallic-flake' | 'anodized' | 'brushed' | 'hammered' | 'aged' | 'pearl' | 'iridescent' | 'holographic';
 type KnobStyle = 'classic' | 'davies' | 'skirt' | 'metal' | 'cylinder' | 'dome' | 'pointer' | 'ribbed' | 'cup';
+type DesignSource = 'legacy' | 'motif-sheet' | 'illustration-sheet' | 'procedural-pattern';
+type PatternStyle = 'stripe' | 'checker' | 'dot' | 'herringbone' | 'seigaiha';
 type FootswitchStyle = 'metal' | 'soft-touch' | 'pad' | 'large-lower-paddle';
 type ControlVariant = 'row' | 'triangle' | 'grid' | 'hero' | 'asymmetric';
 type DesignArchetype = 'MINIMAL LAB' | 'VINTAGE STOMP' | 'DARK BOUTIQUE' | 'PSYCHE FUZZ' | 'SPACE SIGNAL' | 'JAPANESE INDUSTRIAL' | 'SWISS MODERN' | 'GARAGE DIY' | 'SCIENTIFIC' | 'POP OBJECT' | 'BARE METAL' | 'MYSTIC SYMBOL';
@@ -84,6 +86,7 @@ type Pedal = {
   footswitchLabels: string[]; toggleLabels: string[]; identityMotif: IdentityMotif;
   brand?: BrandProfile; typography?: TypographyDesign; modelNumber?: string; namingFamily?: NamingFamily; kanjiTerm?: string; kanjiStyle?: KanjiTypographyStyle; kanjiUsage?: KanjiUsage; layoutChecks?: string[]; promoDirection?: PromoDirection; motifType?: MotifType; motifLabel?: string; motifCategory?: MotifCategory; motifRenderStyle?: MotifRenderStyle; motifPlacement?: MotifPlacement; motifScale?: MotifScale;
   customGraphic?: CustomGraphicMeta;
+  designSource?: DesignSource; designSourceIndex?: number; patternStyle?: PatternStyle; tunerDisplayShape?: 'wide' | 'square';
 };
 const paletteFamilies: Record<ColorChoice, [string, string][]> = {
   acid: [['#c7ff1a', '#202d0f'], ['#f1e86a', '#36352d'], ['#8fe641', '#2b123f'], ['#ffb12b', '#3c2416'], ['#b7d760', '#3b4329']],
@@ -326,7 +329,7 @@ export function generate(values: ForgeInput, variant = false): Pedal {
   // Product order: enclosure first, then only controls that physically fit it.
   const enclosureWeights = baseEnclosureDistribution.map(([candidate, weight]) => [candidate, weight * enclosureCategoryMultiplier[category][candidate]] as [EnclosureClass, number]);
   const enclosureClass = brokenSignalBrief ? 'wide' : weightedPick(r, enclosureWeights);
-  const enclosure: Enclosure = isTuner ? 'standard125' : brokenSignalBrief ? 'wide' : enclosureClass === 'special' ? pick(specialEnclosures[category]) : enclosureClass === 'micro' ? pick<Enclosure>(['nano', 'micro']) : enclosureClass;
+  const enclosure: Enclosure = isTuner ? weightedPick<Enclosure>(r, [['mini', 28], ['compact', 26], ['standard125', 28], ['digital', 18]]) : brokenSignalBrief ? 'wide' : enclosureClass === 'special' ? pick(specialEnclosures[category]) : enclosureClass === 'micro' ? pick<Enclosure>(['nano', 'micro']) : enclosureClass;
   const enclosureSize = enclosureDimensions[enclosure];
   const isTiny = ['nano', 'micro', 'mini'].includes(enclosure);
   const templates = controlTemplates[category];
@@ -367,13 +370,13 @@ export function generate(values: ForgeInput, variant = false): Pedal {
     ? weightedPick<MaterialStyle>(r, [['metallic-flake', 28], ['pearl', 22], ['iridescent', 20], ['holographic', 12], ['high-gloss', 10], ['anodized', 8]])
     : weightedPick<MaterialStyle>(r, [['powder', 25], ['matte', 20], ['semi-gloss', 15], ['metallic-flake', 10], ['brushed', 10], ['hammered', 7], ['high-gloss', 5], ['anodized', 5], ['aged', 3]]);
   const knobFamilies: Record<DesignArchetype, KnobStyle[]> = {
-    'MINIMAL LAB': ['classic', 'metal', 'cup'], 'VINTAGE STOMP': ['davies', 'skirt', 'pointer'], 'DARK BOUTIQUE': ['classic', 'skirt', 'metal', 'ribbed'], 'PSYCHE FUZZ': ['davies', 'skirt', 'pointer'],
-    'SPACE SIGNAL': ['metal', 'classic', 'cup'], 'JAPANESE INDUSTRIAL': ['davies', 'metal', 'ribbed'], 'SWISS MODERN': ['classic', 'metal', 'cup'], 'GARAGE DIY': ['davies', 'skirt', 'pointer'],
-    SCIENTIFIC: ['metal', 'classic', 'ribbed'], 'POP OBJECT': ['davies', 'classic', 'cup'], 'BARE METAL': ['metal', 'ribbed'], 'MYSTIC SYMBOL': ['skirt', 'davies', 'pointer'],
+    'MINIMAL LAB': ['classic', 'metal', 'cylinder'], 'VINTAGE STOMP': ['davies', 'skirt', 'pointer'], 'DARK BOUTIQUE': ['classic', 'skirt', 'metal', 'ribbed'], 'PSYCHE FUZZ': ['davies', 'skirt', 'pointer'],
+    'SPACE SIGNAL': ['metal', 'classic', 'cylinder'], 'JAPANESE INDUSTRIAL': ['davies', 'metal', 'ribbed', 'cylinder'], 'SWISS MODERN': ['classic', 'metal', 'cylinder'], 'GARAGE DIY': ['davies', 'skirt', 'pointer'],
+    SCIENTIFIC: ['metal', 'classic', 'ribbed'], 'POP OBJECT': ['davies', 'classic'], 'BARE METAL': ['metal', 'ribbed'], 'MYSTIC SYMBOL': ['skirt', 'davies', 'pointer'],
   };
   const knobStyle: KnobStyle = r() < .62 ? brand.knobFamily : pick(knobFamilies[designArchetype]);
-  const paddleEligible = footswitches === 1 && ['compact', 'standard125', 'tall'].includes(enclosure) && controlLayoutMode === 'knob-only';
-  const footswitchStyle: FootswitchStyle = hardwareCulture === 'TREADLE STOMP' ? 'pad' : paddleEligible ? weightedPick<FootswitchStyle>(r, [['metal', 48], ['soft-touch', 17], ['large-lower-paddle', 35]]) : weightedPick<FootswitchStyle>(r, [['metal', 74], ['soft-touch', 26]]);
+  const paddleEligible = !isTuner && footswitches === 1 && ['compact', 'standard125', 'tall'].includes(enclosure) && controlLayoutMode === 'knob-only';
+  const footswitchStyle: FootswitchStyle = isTuner ? 'metal' : hardwareCulture === 'TREADLE STOMP' ? 'pad' : paddleEligible ? weightedPick<FootswitchStyle>(r, [['metal', 48], ['soft-touch', 17], ['large-lower-paddle', 35]]) : weightedPick<FootswitchStyle>(r, [['metal', 74], ['soft-touch', 26]]);
   const display = (isTuner ? 'oled' : controlLayoutMode !== 'knob-only' || isTiny ? 'none' : hardwareCulture === 'DIGITAL MULTI' ? 'oled' : ((['SPACE SIGNAL', 'SCIENTIFIC'].includes(designArchetype) || sound === 'cosmic') && enclosure !== 'compact' && controlLayout !== 'dense6' && r() > .52 ? pick(['segment', 'oled'] as const) : 'none')) as Pedal['display'];
   const graphicWeights: Array<[GraphicMode, number]> = visualIntensity === 'maximal'
     ? [['FULL ILLUSTRATION', 34], ['TYPOGRAPHY', 28], ['PANEL', 22], ['ONE POINT', 16]]
@@ -406,6 +409,14 @@ export function generate(values: ForgeInput, variant = false): Pedal {
   const motifPlacement = weightedPick<MotifPlacement>(r, [['lower-right', 22], ['lower-left', 18], ['upper-right', 12], ['upper-left', 10], ['above-footswitch', 14], ['between-knobs', 10], ['center-small', 8], ['diagonal-corner', 6]]);
   const motifScale = motifCategory === 'animal' ? weightedPick<MotifScale>(r, [['small', 22], ['medium', 58], ['statement', 20]]) : weightedPick<MotifScale>(r, [['tiny', 12], ['small', 46], ['medium', 35], ['statement', 7]]);
   if ((motifCategory === 'animal' || motifCategory === 'cute-character') && !['ONE POINT', 'PANEL', 'TYPOGRAPHY'].includes(graphicMode)) { graphicMode = visualIntensity === 'maximal' ? 'PANEL' : 'ONE POINT'; artCoverage = graphicMode === 'PANEL' ? 'partial' : 'symbol'; }
+  const designSource: DesignSource = isTuner ? 'legacy' : weightedPick<DesignSource>(r, [['legacy', 70], ['motif-sheet', 12], ['illustration-sheet', 10], ['procedural-pattern', 8]]);
+  const illustrationCandidates: Record<EffectCategory, number[]> = { drive: [5, 8], fuzz: [3], boost: [5, 8], compressor: [0, 4], modulation: [4, 6], phaser: [4, 6], tremolo: [7], delay: [1], reverb: [0, 2, 4], filter: [4, 8], synth: [2, 6, 7] };
+  const designSourceIndex = designSource === 'motif-sheet' ? Math.floor(r() * 25) : designSource === 'illustration-sheet' ? pick(illustrationCandidates[category]) : 0;
+  const patternStyle = designSource === 'procedural-pattern' ? pick<PatternStyle>(['stripe', 'checker', 'dot', 'herringbone', 'seigaiha']) : undefined;
+  const tunerDisplayShape = isTuner ? pick(['wide', 'square'] as const) : undefined;
+  if (designSource === 'motif-sheet') { graphicMode = 'ONE POINT'; artCoverage = 'symbol'; }
+  if (designSource === 'illustration-sheet') { graphicMode = 'FULL ILLUSTRATION'; artCoverage = 'full'; }
+  if (designSource === 'procedural-pattern') { graphicMode = 'ABSTRACT'; artCoverage = 'full'; }
   const typography = createTypographyDesign(brand, r, type, graphicMode === 'TYPOGRAPHY' || visualIntensity === 'maximal', knobs.length + eqSliders.length);
   const promoDirection = createPromoDirection(brand, r);
   const brandLabel = brand.manufacturerName; const brandSeries = brand.seriesName; const ownerLabel = '';
@@ -425,7 +436,7 @@ export function generate(values: ForgeInput, variant = false): Pedal {
 
   const instrumentLabel = inputSourceSummary(inputSources);
   const selection = (requested: string, resolved: string) => requested === 'random' ? `おまかせ → ${resolved}` : resolved;
-  const choiceImpact = [`MAKER ${brand.manufacturerName}`, `INPUT SOURCE ${inputSourceSummary(inputSources)}`, `SIGNAL ${signalProfile.level.toUpperCase()} / ${signalProfile.headroom.toUpperCase()} HEADROOM / ${ioChannels.toUpperCase()}`, `EFFECT ${selection(values.effectType, type)}`, `TONE ${selection(values.sound, sound.toUpperCase())}`, `FINISH ${selection(values.colorChoice, colorChoice.toUpperCase())}`, `MOOD ${selection(values.mood, mood.toUpperCase())}`, `FORM ${enclosureDimensions[enclosure].label}`, `NAME ${namingFamily.toUpperCase()}${kanjiEntry ? ` / ${kanjiEntry.text}` : ''}`, `DESIGN ${graphicMode} / ${typography.mode.toUpperCase()}`, `CONTROL ${controlLayoutMode.toUpperCase()}${eqPreset ? ` / ${eqPreset.toUpperCase()}` : ''}`];
+  const choiceImpact = [`ART SOURCE ${designSource.toUpperCase()}`, `MAKER ${brand.manufacturerName}`, `INPUT SOURCE ${inputSourceSummary(inputSources)}`, `SIGNAL ${signalProfile.level.toUpperCase()} / ${signalProfile.headroom.toUpperCase()} HEADROOM / ${ioChannels.toUpperCase()}`, `EFFECT ${selection(values.effectType, type)}`, `TONE ${selection(values.sound, sound.toUpperCase())}`, `FINISH ${selection(values.colorChoice, colorChoice.toUpperCase())}`, `MOOD ${selection(values.mood, mood.toUpperCase())}`, `FORM ${enclosureDimensions[enclosure].label}`, `NAME ${namingFamily.toUpperCase()}${kanjiEntry ? ` / ${kanjiEntry.text}` : ''}`, `DESIGN ${graphicMode} / ${typography.mode.toUpperCase()}`, `CONTROL ${controlLayoutMode.toUpperCase()}${eqPreset ? ` / ${eqPreset.toUpperCase()}` : ''}`];
   const sourceArchitecture = signalProfile.level === 'piezo' ? 'HIGH-Z PIEZO FRONT END' : signalProfile.level === 'line-tolerant' ? 'HIGH-HEADROOM LINE PROCESSOR' : inputSources.includes('bass') ? 'LOW-END RETAINING SIGNAL PATH' : '';
   const effectArchitecture = isTuner ? 'CHROMATIC PITCH DETECTION' : brokenSignalBrief ? 'PARALLEL DRIVE PREAMP' : [sourceArchitecture, pick(architectureByCategory[category])].filter(Boolean).join(' / ');
   const rotaryControlGroups = brokenSignalBrief ? [{ name: 'INPUT / DRIVE', controls: knobs.slice(0, 4) }, { name: '3-BAND EQ', controls: knobs.slice(4) }] : controlGroupsFor(category, knobs);
@@ -441,7 +452,7 @@ export function generate(values: ForgeInput, variant = false): Pedal {
   if (faceCost > faceBudgetByEnclosure[enclosure]) throw new Error(`Control budget exceeded for ${enclosure}`);
   const designScore = Math.min(98, 86 + (isTiny && knobs.length <= 4 ? 4 : 0) + (graphicMode === 'STICKER' ? 0 : 3) + Math.floor(r() * 5));
   const weight = `${Math.round(120 + enclosureSize.width * enclosureSize.height * 34)} g`;
-  return { id: `${brand.id}-${values.seed}-${serial}${variant ? '-LTD' : ''}`, seed: values.seed, owner: '', instrument, inputSources, signalProfile, ioChannels, effectType: values.effectType, sound, mood, colorChoice, name, type, copy: isTuner ? '音程の中心を光の目盛りで静かに捉える' : pick(descriptions[sound]), knobs, special: isTuner ? '入力音を検出し、半音単位とセント偏差を表示' : pick(specialsByCategory[category]), rarity, serial, usage: isTuner ? `${instrumentLabel}のチューニング` : `${instrumentLabel}、${mood === 'dreaming' ? 'アンビエント' : mood === 'feral' ? 'ノイズロック' : 'シューゲイザー'}`, warning: isTuner ? 'ON時は出力をミュートし、画面で音程を確認します。' : knobs.length ? `${knobs[Math.min(2, knobs.length - 1)]}最大時は原音がほぼ観測不能になります。` : eqSliders.length ? `${eqSliders[Math.floor(eqSliders.length / 2)].label}帯域を最大にすると出力が急激に変化します。` : '固定回路のため、フットスイッチでのみ動作を切り替えます。', bypass: isTuner ? 'ミュートチューニング' : r() > .5 ? 'トゥルーバイパス' : 'バッファードバイパス', power: 'DC 9V センターマイナス / 85mA', dimensions: `${Math.round(enclosureSize.width * 34)} × ${Math.round(enclosureSize.height * 34)} × ${Math.round(enclosureSize.depth * 34)} mm`, weight, palette, paletteMode, graphicColor, hardwareColors, accentColors, variant, enclosure, jackLayout, powerPlacement, controlLayout, footswitches, toggleCount, artIndex, artAtlas, labelMode: 'full', ownerFont: 0, choiceImpact, materialStyle, knobStyle, footswitchStyle, artCoverage, ledStyle, ledCount, ledLocation, ledColors, display, extraPort, brandSeries, artDirection, designScore, designArchetype, controlVariant, titleFont: 0, brandLabel, ownerLabel, namingPattern, hardwareCulture, graphicMode, condition, effectArchitecture, controlGroups, controlGroupFrameStyle, visualIntensity, primaryControl, controlLayoutMode, eqPreset, eqSliders, footswitchLabels, toggleLabels, identityMotif, brand, typography, modelNumber, namingFamily, kanjiTerm: kanjiEntry?.text, kanjiStyle, kanjiUsage, layoutChecks, promoDirection, motifType, motifLabel, motifCategory, motifRenderStyle, motifPlacement, motifScale };
+  return { id: `${brand.id}-${values.seed}-${serial}${variant ? '-LTD' : ''}`, seed: values.seed, owner: '', instrument, inputSources, signalProfile, ioChannels, effectType: values.effectType, sound, mood, colorChoice, name, type, copy: isTuner ? '音程の中心を光の目盛りで静かに捉える' : pick(descriptions[sound]), knobs, special: isTuner ? '入力音を検出し、半音単位とセント偏差を表示' : pick(specialsByCategory[category]), rarity, serial, usage: isTuner ? `${instrumentLabel}のチューニング` : `${instrumentLabel}、${mood === 'dreaming' ? 'アンビエント' : mood === 'feral' ? 'ノイズロック' : 'シューゲイザー'}`, warning: isTuner ? 'ON時は出力をミュートし、画面で音程を確認します。' : knobs.length ? `${knobs[Math.min(2, knobs.length - 1)]}最大時は原音がほぼ観測不能になります。` : eqSliders.length ? `${eqSliders[Math.floor(eqSliders.length / 2)].label}帯域を最大にすると出力が急激に変化します。` : '固定回路のため、フットスイッチでのみ動作を切り替えます。', bypass: isTuner ? 'ミュートチューニング' : r() > .5 ? 'トゥルーバイパス' : 'バッファードバイパス', power: 'DC 9V センターマイナス / 85mA', dimensions: `${Math.round(enclosureSize.width * 34)} × ${Math.round(enclosureSize.height * 34)} × ${Math.round(enclosureSize.depth * 34)} mm`, weight, palette, paletteMode, graphicColor, hardwareColors, accentColors, variant, enclosure, jackLayout, powerPlacement, controlLayout, footswitches, toggleCount, artIndex, artAtlas, labelMode: 'full', ownerFont: 0, choiceImpact, materialStyle, knobStyle, footswitchStyle, artCoverage, ledStyle, ledCount, ledLocation, ledColors, display, extraPort, brandSeries, artDirection, designScore, designArchetype, controlVariant, titleFont: 0, brandLabel, ownerLabel, namingPattern, hardwareCulture, graphicMode, condition, effectArchitecture, controlGroups, controlGroupFrameStyle, visualIntensity, primaryControl, controlLayoutMode, eqPreset, eqSliders, footswitchLabels, toggleLabels, identityMotif, brand, typography, modelNumber, namingFamily, kanjiTerm: kanjiEntry?.text, kanjiStyle, kanjiUsage, layoutChecks, promoDirection, motifType, motifLabel, motifCategory, motifRenderStyle, motifPlacement, motifScale, designSource, designSourceIndex, patternStyle, tunerDisplayShape };
 }function roundedEnclosureGeometry(width: number, height: number, depth: number) {
   const radius = Math.min(width, height) * .09; const shape = new THREE.Shape();
   shape.moveTo(-width / 2 + radius, -height / 2); shape.lineTo(width / 2 - radius, -height / 2);
@@ -521,7 +532,33 @@ function MaximalArtwork({ pedal, size, surfaceY }: { pedal: Pedal; size: { width
   return <group>{Array.from({ length: count }, (_, index) => <mesh key={index} position={[0, surfaceY - .026, start + stripHeight * index]} rotation={[-Math.PI / 2, 0, 0]} renderOrder={0}><planeGeometry args={[size.width * .92, stripHeight * 1.025]} /><meshBasicMaterial color={colors[index % colors.length]} transparent opacity={index % 2 ? .72 : .88} depthWrite={false} toneMapped={false} /></mesh>)}
 
   </group>;
-}function TypographyTitle({ pedal, size, surfaceY, controlCount, displayActive, placement }: { pedal: Pedal; size: { width: number; height: number }; surfaceY: number; controlCount: number; displayActive: boolean; placement?: { x: number; z: number; width: number } }) {
+}
+
+function SheetDesignArtwork({ source, index, size, surfaceY, placement = 'center-small' }: { source: 'motif-sheet' | 'illustration-sheet'; index: number; size: { width: number; height: number }; surfaceY: number; placement?: MotifPlacement }) {
+  const columns = source === 'motif-sheet' ? 5 : 3; const rows = columns; const cellCount = columns * rows; const resolvedIndex = Math.abs(index) % cellCount;
+  const texture = useMemo(() => {
+    const next = new THREE.TextureLoader().load(source === 'motif-sheet' ? '/pedal-forge-motif-grid-keyed.webp' : '/pedal-forge-illustration-grid.webp');
+    const cellWidth = 1 / columns; const cellHeight = 1 / rows; const inset = source === 'motif-sheet' ? .012 : .018; const column = resolvedIndex % columns; const row = Math.floor(resolvedIndex / columns);
+    next.colorSpace = THREE.SRGBColorSpace; next.wrapS = THREE.ClampToEdgeWrapping; next.wrapT = THREE.ClampToEdgeWrapping;
+    next.repeat.set(cellWidth - inset * 2, cellHeight - inset * 2); next.offset.set(column * cellWidth + inset, 1 - (row + 1) * cellHeight + inset);
+    next.minFilter = THREE.LinearMipmapLinearFilter; next.magFilter = THREE.LinearFilter; return next;
+  }, [columns, resolvedIndex, source]);
+  useEffect(() => () => texture.dispose(), [texture]);
+  if (source === 'illustration-sheet') return <mesh position={[0, surfaceY - .027, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow><planeGeometry args={[size.width * .94, size.height * .94]} /><meshStandardMaterial map={texture} roughness={.62} metalness={.03} polygonOffset polygonOffsetFactor={-3} /></mesh>;
+  const positions: Record<MotifPlacement, [number, number]> = { 'lower-right': [size.width * .27, size.height * .19], 'lower-left': [-size.width * .27, size.height * .19], 'upper-right': [size.width * .27, -size.height * .2], 'upper-left': [-size.width * .27, -size.height * .2], 'center-small': [0, size.height * .02], 'above-footswitch': [0, size.height * .2], 'between-knobs': [0, -size.height * .03], 'diagonal-corner': [size.width * .24, size.height * .16] };
+  const [x, z] = positions[placement]; const side = Math.min(size.width * .34, size.height * .25, 1.08);
+  return <mesh position={[x, surfaceY - .014, z]} rotation={[-Math.PI / 2, 0, placement === 'diagonal-corner' ? -.14 : 0]}><planeGeometry args={[side, side]} /><meshStandardMaterial map={texture} transparent alphaTest={.04} roughness={.58} metalness={.02} polygonOffset polygonOffsetFactor={-3} /></mesh>;
+}
+function ProceduralPatternArtwork({ style, size, surfaceY, colors }: { style: PatternStyle; size: { width: number; height: number }; surfaceY: number; colors: string[] }) {
+  const ink = colors[0] || '#f4f1e6'; const secondary = colors[1] || '#33dcff'; const baseY = surfaceY - .019;
+  const background = <mesh position={[0, surfaceY - .03, 0]} rotation={[-Math.PI / 2, 0, 0]}><planeGeometry args={[size.width * .94, size.height * .94]} /><meshBasicMaterial color={secondary} transparent opacity={.26} depthWrite={false} toneMapped={false} /></mesh>;
+  if (style === 'stripe') return <group>{background}{Array.from({ length: 11 }, (_, i) => <mesh key={i} position={[(i - 5) * size.width * .1, baseY, 0]} rotation={[0, .32, 0]}><boxGeometry args={[size.width * .055, .012, size.height * 1.08]} /><meshBasicMaterial color={i % 2 ? ink : secondary} transparent opacity={.68} depthWrite={false} /></mesh>)}</group>;
+  if (style === 'checker') return <group>{background}{Array.from({ length: 30 }, (_, i) => { const columns = 6; const row = Math.floor(i / columns); const column = i % columns; if ((row + column) % 2) return null; return <mesh key={i} position={[(column - 2.5) * size.width * .15, baseY, (row - 2) * size.height * .18]}><boxGeometry args={[size.width * .145, .012, size.height * .175]} /><meshBasicMaterial color={column % 3 ? ink : secondary} transparent opacity={.64} depthWrite={false} /></mesh>; })}</group>;
+  if (style === 'dot') return <group>{background}{Array.from({ length: 24 }, (_, i) => { const columns = 6; const row = Math.floor(i / columns); const column = i % columns; return <mesh key={i} position={[(column - 2.5) * size.width * .15, baseY, (row - 1.5) * size.height * .2]}><cylinderGeometry args={[Math.min(size.width, size.height) * (i % 3 === 0 ? .045 : .027), Math.min(size.width, size.height) * (i % 3 === 0 ? .045 : .027), .012, 20]} /><meshBasicMaterial color={i % 2 ? ink : secondary} transparent opacity={.72} depthWrite={false} /></mesh>; })}</group>;
+  if (style === 'herringbone') return <group>{background}{Array.from({ length: 20 }, (_, i) => { const columns = 5; const row = Math.floor(i / columns); const column = i % columns; const left = i % 2 === 0; return <mesh key={i} position={[(column - 2) * size.width * .19, baseY, (row - 1.5) * size.height * .22]} rotation={[0, left ? .72 : -.72, 0]}><boxGeometry args={[size.width * .035, .014, size.height * .24]} /><meshBasicMaterial color={left ? ink : secondary} transparent opacity={.72} depthWrite={false} /></mesh>; })}</group>;
+  return <group>{background}{Array.from({ length: 18 }, (_, i) => { const columns = 6; const row = Math.floor(i / columns); const column = i % columns; return <mesh key={i} position={[(column - 2.5) * size.width * .15 + (row % 2 ? size.width * .075 : 0), baseY, (row - 1) * size.height * .25]} rotation={[-Math.PI / 2, 0, 0]}><torusGeometry args={[Math.min(size.width, size.height) * .09, .018, 6, 20, Math.PI]} /><meshBasicMaterial color={i % 2 ? ink : secondary} transparent opacity={.7} depthWrite={false} /></mesh>; })}</group>;
+}
+function TypographyTitle({ pedal, size, surfaceY, controlCount, displayActive, placement }: { pedal: Pedal; size: { width: number; height: number }; surfaceY: number; controlCount: number; displayActive: boolean; placement?: { x: number; z: number; width: number } }) {
   const name = pedal.name.replace(' // LIMITED', '');
   const typography = pedal.typography || { mode: 'standard', displayFontCategory: 'modern_sans', utilityFontCategory: 'sans', productNameScale: .75, letterSpacing: .03, rotation: 0, outline: true, shadow: false } as TypographyDesign;
   const font = pedal.kanjiUsage === 'product-name' ? kanjiFontStack(pedal.kanjiStyle) : displayFontStack(typography.displayFontCategory);
@@ -547,17 +584,23 @@ function KanjiDesignMark({ pedal, size, surfaceY, controlCount }: { pedal: Pedal
   const width = Math.min(size.width * .38, 1.35); return <SurfaceText text={pedal.kanjiTerm} position={[size.width * .27, surfaceY - .012, size.height * .13]} width={width} font={kanjiFontStack(pedal.kanjiStyle)} color={pedal.accentColors?.[1] || pedal.graphicColor || pedal.palette[0]} opacity={.42} outline={false} />;
 }
 function KnobControl({ style, radius, color }: { style: KnobStyle; radius: number; color: string }) {
-  const isMetal = style === 'metal'; const isSkirt = style === 'skirt' || style === 'dome' || style === 'cup'; const isDavies = style === 'davies'; const isPointer = style === 'pointer'; const isRibbed = style === 'ribbed'; const isCup = style === 'cup';
-  const bodyColor = isMetal || isRibbed ? '#aeb3ad' : color; const height = isPointer ? .34 : isCup ? .31 : isSkirt ? .38 : isDavies ? .42 : .46;
+  const resolvedStyle: Exclude<KnobStyle, 'cup'> = style === 'cup' ? 'classic' : style;
+  const isMetal = resolvedStyle === 'metal'; const isSkirt = resolvedStyle === 'skirt' || resolvedStyle === 'dome'; const isDavies = resolvedStyle === 'davies'; const isPointer = resolvedStyle === 'pointer'; const isRibbed = resolvedStyle === 'ribbed'; const isShortCylinder = resolvedStyle === 'cylinder';
+  const bodyColor = isMetal || isRibbed ? '#aeb3ad' : color;
+  if (isPointer) return <group>
+    <mesh position={[0, -.14, 0]}><cylinderGeometry args={[radius * 1.14, radius * 1.14, .014, 32]} /><meshStandardMaterial color="#070807" roughness={.96} /></mesh>
+    <mesh position={[0, -.105, 0]} castShadow><cylinderGeometry args={[radius * 1.04, radius * 1.08, .12, 32]} /><meshStandardMaterial color={color} metalness={.22} roughness={.5} /></mesh>
+    <mesh position={[0, .09, 0]} castShadow><boxGeometry args={[radius * .76, .34, radius * 1.42]} /><meshStandardMaterial color={color} metalness={.18} roughness={.46} /></mesh>
+    <mesh position={[0, .267, -radius * .3]}><boxGeometry args={[Math.max(.035, radius * .11), .018, radius * .66]} /><meshStandardMaterial color="#f4f0df" roughness={.46} /></mesh>
+  </group>;
+  const height = isShortCylinder ? .28 : isSkirt ? .36 : isDavies ? .38 : .4;
   return <group>
     <mesh position={[0, -height / 2 - .047, 0]}><cylinderGeometry args={[radius * 1.13, radius * 1.13, .014, 32]} /><meshStandardMaterial color="#070807" roughness={.96} /></mesh>
     <mesh position={[0, -height / 2 - .018, 0]} castShadow><cylinderGeometry args={[radius * 1.08, radius * 1.08, .035, 32]} /><meshStandardMaterial color="#aeb3ad" metalness={.92} roughness={.22} /></mesh>
-    <mesh castShadow><cylinderGeometry args={[isPointer ? radius * .22 : isSkirt ? radius * .72 : radius * .88, isPointer ? radius * .96 : isSkirt ? radius * 1.08 : radius, height, isRibbed ? 12 : isMetal ? 36 : isDavies ? 18 : 24]} /><meshStandardMaterial color={bodyColor} metalness={isMetal || isRibbed ? .9 : .28} roughness={isRibbed ? .38 : isMetal ? .24 : .52} flatShading={isRibbed} /></mesh>
-    {!isPointer && <mesh position={[0, height / 2 + .027, 0]} castShadow><cylinderGeometry args={[isCup ? radius * .52 : radius * .72, isCup ? radius * .7 : radius * .78, isCup ? .09 : .055, 28]} /><meshStandardMaterial color={isMetal || isRibbed ? '#c9ccc7' : color} metalness={isMetal || isRibbed ? .92 : .24} roughness={.34} /></mesh>}
-    {isCup && <mesh position={[0, height / 2 + .074, 0]}><torusGeometry args={[radius * .48, radius * .12, 10, 30]} /><meshStandardMaterial color="#171a17" roughness={.54} /></mesh>}
-    {isPointer && <mesh position={[0, height / 2 + .045, -radius * .23]} castShadow><boxGeometry args={[radius * .32, .075, radius * 1.14]} /><meshStandardMaterial color={color} roughness={.46} /></mesh>}
+    <mesh castShadow><cylinderGeometry args={[isSkirt ? radius * .72 : radius * .88, isSkirt ? radius * 1.08 : radius, height, isRibbed ? 12 : isMetal ? 36 : isDavies ? 18 : 24]} /><meshStandardMaterial color={bodyColor} metalness={isMetal || isRibbed ? .9 : .28} roughness={isRibbed ? .38 : isMetal ? .24 : .52} flatShading={isRibbed} /></mesh>
+    <mesh position={[0, height / 2 + .027, 0]} castShadow><cylinderGeometry args={[radius * .72, radius * .78, .055, 28]} /><meshStandardMaterial color={isMetal || isRibbed ? '#c9ccc7' : color} metalness={isMetal || isRibbed ? .92 : .24} roughness={.34} /></mesh>
     <mesh position={[0, -height * .18, 0]} rotation={[Math.PI / 2, 0, 0]}><torusGeometry args={[radius * .94, .02, 6, isDavies ? 18 : 30]} /><meshStandardMaterial color={isMetal || isRibbed ? '#666c67' : '#111411'} metalness={.72} roughness={.42} /></mesh>
-    {!isPointer && <mesh position={[0, height / 2 + (isCup ? .13 : .064), -radius * .27]}><boxGeometry args={[Math.max(.035, radius * .1), .022, radius * .72]} /><meshStandardMaterial color="#f4f0df" metalness={.08} roughness={.5} /></mesh>}
+    {!isShortCylinder && <mesh position={[0, height / 2 + .064, -radius * .27]}><boxGeometry args={[Math.max(.035, radius * .1), .022, radius * .72]} /><meshStandardMaterial color="#f4f0df" metalness={.08} roughness={.5} /></mesh>}
   </group>;
 }
 function RotaryControlUnit({ position, label, style, baseRadius, isPrimary, color, labelColor, labelWidth, labelSurfaceY, enclosureHeight, showLabel, font, labelPlacement = 'auto' }: { position: [number, number, number]; label: string; style: KnobStyle; baseRadius: number; isPrimary: boolean; color: string; labelColor: string; labelWidth: number; labelSurfaceY: number; enclosureHeight: number; showLabel: boolean; font?: string; labelPlacement?: ControlLabelPlacement }) {
@@ -652,19 +695,19 @@ function RuntimeDisplay({ width, label, color, runtimeMode }: { width: number; l
     {runtimeMode === 'play' && <group ref={bars} position={[0, .078, .105]}>{Array.from({ length: 7 }, (_, i) => <mesh key={i} position={[(i - 3) * width * .09, 0, 0]}><boxGeometry args={[width * .045, .012, .11]} /><meshBasicMaterial color={color} toneMapped={false} /></mesh>)}</group>}
   </group>;
 }
-function TunerDisplay({ width, color, runtimeMode }: { width: number; color: string; runtimeMode: RuntimeMode }) {
+function TunerDisplay({ width, depth, color, runtimeMode }: { width: number; depth: number; color: string; runtimeMode: RuntimeMode }) {
   const needle = useRef<THREE.Group>(null!);
   useFrame(({ clock }) => { if (!needle.current) return; needle.current.position.x = runtimeMode === 'play' ? Math.sin(clock.elapsedTime * 2.2) * width * .18 : 0; });
   const active = runtimeMode !== 'off';
   return <group>
-    <mesh castShadow><boxGeometry args={[width + .14, .095, .94]} /><meshStandardMaterial color="#050605" metalness={.62} roughness={.2} /></mesh>
-    <mesh position={[0, .058, 0]}><boxGeometry args={[width, .025, .82]} /><meshPhysicalMaterial color="#020403" roughness={.06} clearcoat={.86} emissive={color} emissiveIntensity={active ? .2 : 0} /></mesh>
+    <mesh castShadow><boxGeometry args={[width + .14, .095, depth + .12]} /><meshStandardMaterial color="#050605" metalness={.62} roughness={.2} /></mesh>
+    <mesh position={[0, .058, 0]}><boxGeometry args={[width, .025, depth]} /><meshPhysicalMaterial color="#020403" roughness={.06} clearcoat={.86} emissive={color} emissiveIntensity={active ? .2 : 0} /></mesh>
     {active && <>
-      <SurfaceText text="A  440" position={[0, .086, -.27]} width={width * .34} color={color} outline={false} />
-      <SurfaceText text="E" position={[0, .088, .02]} width={width * .26} color="#f4f1e6" />
-      <group position={[0, .09, .27]}>{Array.from({ length: 9 }, (_, index) => { const centered = index === 4; return <mesh key={index} position={[(index - 4) * width * .085, 0, 0]}><boxGeometry args={[width * .035, .016, centered ? .16 : .09]} /><meshBasicMaterial color={centered ? '#55ff7a' : color} toneMapped={false} /></mesh>; })}</group>
-      <group ref={needle} position={[0, .1, .19]}><mesh><boxGeometry args={[width * .055, .02, .24]} /><meshBasicMaterial color="#f4f1e6" toneMapped={false} /></mesh></group>
-      <SurfaceText text="-50     CENT     +50" position={[0, .086, .38]} width={width * .72} color={color} outline={false} />
+      <SurfaceText text="A  440" position={[0, .086, -depth * .32]} width={width * .34} color={color} outline={false} />
+      <SurfaceText text="E" position={[0, .09, -depth * .04]} width={Math.min(width * .48, depth * .62)} color="#f4f1e6" />
+      <group position={[0, .09, depth * .24]}>{Array.from({ length: 9 }, (_, index) => { const centered = index === 4; return <mesh key={index} position={[(index - 4) * width * .085, 0, 0]}><boxGeometry args={[width * .035, .016, centered ? depth * .18 : depth * .1]} /><meshBasicMaterial color={centered ? '#55ff7a' : color} toneMapped={false} /></mesh>; })}</group>
+      <group ref={needle} position={[0, .1, depth * .16]}><mesh><boxGeometry args={[width * .055, .02, depth * .27]} /><meshBasicMaterial color="#f4f1e6" toneMapped={false} /></mesh></group>
+      <SurfaceText text="-50     CENT     +50" position={[0, .086, depth * .4]} width={width * .72} color={color} outline={false} />
     </>}
   </group>;
 }
@@ -968,6 +1011,7 @@ function PedalModel({ pedal, runtimeMode = 'play', userGraphics = [], marks = []
   const texture = useMemo(() => { const art = new THREE.TextureLoader().load(pedal.artAtlas === 'b' ? '/pedal-forge-atlas-b.webp' : '/pedal-forge-atlas-a.webp'); art.colorSpace = THREE.SRGBColorSpace; art.wrapS = THREE.ClampToEdgeWrapping; art.wrapT = THREE.ClampToEdgeWrapping; art.repeat.set(.25, .9); art.offset.set(pedal.artIndex * .25, .05); return art; }, [pedal.artIndex, pedal.artAtlas]);
   useEffect(() => () => { geometry.dispose(); texture.dispose(); }, [geometry, texture]);
   const isTunerPedal = pedal.effectType === 'tuner' || pedal.type.includes('TUNER');
+  const designSource: DesignSource = isTunerPedal ? 'legacy' : pedal.designSource || 'legacy';
   const hardwareCulture: HardwareCulture = isBrokenSignal ? 'LAB UTILITY' : pedal.hardwareCulture || (resolvedEnclosure === 'wide' ? 'BIG BOX' : 'CLASSIC STOMP'); const condition = isBrokenSignal ? 'FACTORY NEW' : pedal.condition || 'FACTORY NEW';
   const controlGroups = isBrokenSignal ? [{ name: 'INPUT / DRIVE', controls: controls.slice(0, 4) }, { name: '3-BAND EQ', controls: controls.slice(4) }] : pedal.controlGroups || controlGroupsFor(categoryFor(pedal.type), controls);
   const primaryControl = isBrokenSignal ? 'GAIN' : pedal.primaryControl || primaryControlFor(categoryFor(pedal.type), controls);
@@ -993,15 +1037,18 @@ function PedalModel({ pedal, runtimeMode = 'play', userGraphics = [], marks = []
     iridescent: { metalness: .3, roughness: .18, clearcoat: 1, clearcoatRoughness: .1, iridescence: 1 }, holographic: { metalness: .62, roughness: .16, clearcoat: 1, clearcoatRoughness: .08, iridescence: 1 },
   };
   const finishMaterial = finish[materialStyle];
-  const usesFullArtwork = graphicMode === 'FULL ILLUSTRATION' && artCoverage === 'full'; const artSize: [number, number] = [size.width * .94, size.height * .94]; const indicatorClearance = Math.max(ledLocation === 'upper' ? .5 : .44, size.height * .14); const indicatorZ = hybridLayout?.indicatorZ ?? (largePaddle ? -size.height * .02 : switchZ - indicatorClearance); const showTopScrews = hardwareCulture === 'LAB UTILITY' || condition === 'DIY MODIFIED';
+  const usesFullArtwork = designSource === 'legacy' && graphicMode === 'FULL ILLUSTRATION' && artCoverage === 'full'; const artSize: [number, number] = [size.width * .94, size.height * .94]; const tunerSquare = pedal.tunerDisplayShape === 'square'; const tunerDisplayWidth = tunerSquare ? Math.min(size.width * .7, size.height * .38, 1.8) : size.width * .72; const tunerDisplayDepth = tunerSquare ? tunerDisplayWidth : Math.min(size.height * .26, 1.06); const indicatorClearance = Math.max(ledLocation === 'upper' ? .5 : .44, size.height * .14); const indicatorZ = hybridLayout?.indicatorZ ?? (largePaddle ? -size.height * .02 : switchZ - indicatorClearance); const showTopScrews = hardwareCulture === 'LAB UTILITY' || condition === 'DIY MODIFIED';
   return <group rotation={shotPreset === 'editorial-cover-top' ? [0, 0, 0] : [0, -.08, 0]}><group>
     <mesh geometry={geometry} castShadow receiveShadow><meshPhysicalMaterial color={pedal.palette[1]} metalness={finishMaterial.metalness} roughness={finishMaterial.roughness} clearcoat={finishMaterial.clearcoat} clearcoatRoughness={finishMaterial.clearcoatRoughness} iridescence={finishMaterial.iridescence || 0} iridescenceIOR={1.5} iridescenceThicknessRange={[180, 620]} envMapIntensity={['brushed', 'anodized', 'iridescent', 'holographic'].includes(materialStyle) ? 1.15 : .58} /></mesh>
     <BackPanel size={size} />
     {showTopScrews && ([[-.43, -.43], [.43, .43]] as [number, number][]).map(([x, z], i) => <ChassisScrew key={i} position={[x * size.width, surfaceY + .018, z * size.height]} />)}
     {resolvedEnclosure === 'digital' && <mesh position={[0, surfaceY - .055, .18]} rotation={[-Math.PI / 2, 0, 0]}><boxGeometry args={[size.width * .94, size.height * .5, .11]} /><meshStandardMaterial color={pedal.palette[1]} metalness={finishMaterial.metalness} roughness={finishMaterial.roughness} /></mesh>}
     {usesFullArtwork && <mesh position={[0, surfaceY - .028, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow><planeGeometry args={artSize} /><meshStandardMaterial map={texture} color={pedal.variant ? '#f2eadf' : '#ffffff'} metalness={finishMaterial.metalness * .55} roughness={Math.max(.48, finishMaterial.roughness)} polygonOffset polygonOffsetFactor={-2} /></mesh>}
+    {designSource === 'motif-sheet' && <SheetDesignArtwork source="motif-sheet" index={pedal.designSourceIndex || 0} size={size} surfaceY={surfaceY} placement={pedal.motifPlacement} />}
+    {designSource === 'illustration-sheet' && <SheetDesignArtwork source="illustration-sheet" index={pedal.designSourceIndex || 0} size={size} surfaceY={surfaceY} />}
+    {designSource === 'procedural-pattern' && <ProceduralPatternArtwork style={pedal.patternStyle || 'stripe'} size={size} surfaceY={surfaceY} colors={accentColors} />}
     {userGraphics.map((graphic, index) => graphic.textureUrl && <StickerMark key={graphic.id} graphic={graphic} size={size} surfaceY={surfaceY} layer={index} />)}
-    {pedal.visualIntensity === 'maximal' && !userGraphics.some(graphic => graphic.textureUrl && graphic.visible) && <MaximalArtwork pedal={pedal} size={size} surfaceY={surfaceY} />}
+    {designSource === 'legacy' && pedal.visualIntensity === 'maximal' && !userGraphics.some(graphic => graphic.textureUrl && graphic.visible) && <MaximalArtwork pedal={pedal} size={size} surfaceY={surfaceY} />}
     {hardwareCulture === 'LAB UTILITY' && <XlrPort position={[size.width / 2 + .05, 0, size.height * .18]} />}
     {controls.length >= 5 && groupRows.map(({ group, row }) => <ControlGroupFrame key={group.name} group={group} row={row} style={pedal.controlGroupFrameStyle || 'thin-line'} radius={knobRadius} surfaceY={labelSurfaceY - .018} color={graphicColor} backgroundColor={pedal.palette[1]} />)}
     {!!eqSliders.length && hybridLayout && <SliderEqGroup sliders={eqSliders} surfaceY={surfaceY} color={graphicColor} layout={hybridLayout.eqPanel} />}
@@ -1014,9 +1061,9 @@ function PedalModel({ pedal, runtimeMode = 'play', userGraphics = [], marks = []
       <group position={[0, surfaceY + .16, -size.height * .29]}><RuntimeDisplay width={size.width * .65} label={pedal.type + ' / P01'} color={pedal.palette[0]} runtimeMode={runtimeMode} /></group>
       {([[-.72, .12], [.72, .12], [-.72, .82], [.72, .82]] as [number, number][]).map(([x, z], i) => <group key={i} position={[x, surfaceY + .1, z]}><mesh><boxGeometry args={[.58, .16, .48]} /><meshStandardMaterial color="#202420" roughness={.7} /></mesh><SurfaceText text={['MEM-', 'MEM+', 'BACK', 'NEXT'][i]} position={[0, .1, 0]} width={.42} color="#dce2d8" /></group>)}
     </group>}
-    {isTunerPedal && <group position={[0, surfaceY + .09, -size.height * .17]}><TunerDisplay width={size.width * .72} color={pedal.palette[0]} runtimeMode={runtimeMode} /></group>}
+    {isTunerPedal && <group position={[0, surfaceY + .09, -size.height * .19]}><TunerDisplay width={tunerDisplayWidth} depth={tunerDisplayDepth} color={pedal.palette[0]} runtimeMode={runtimeMode} /></group>}
     <WearMarks size={size} condition={condition} surfaceY={surfaceY} />
-    {!hybridLayout && <GraphicAccent mode={graphicMode} size={size} surfaceY={surfaceY} color={accentColors[pedal.artIndex % accentColors.length]} artIndex={pedal.artIndex} motifType={pedal.motifType || 'wave'} renderStyle={pedal.motifRenderStyle || 'line-art'} placement={pedal.motifPlacement || 'lower-right'} scale={pedal.motifScale || 'small'} />}
+    {!hybridLayout && designSource === 'legacy' && <GraphicAccent mode={graphicMode} size={size} surfaceY={surfaceY} color={accentColors[pedal.artIndex % accentColors.length]} artIndex={pedal.artIndex} motifType={pedal.motifType || 'wave'} renderStyle={pedal.motifRenderStyle || 'line-art'} placement={pedal.motifPlacement || 'lower-right'} scale={pedal.motifScale || 'small'} />}
     {!hybridLayout && <KanjiDesignMark pedal={pedal} size={size} surfaceY={surfaceY} controlCount={controls.length + eqSliders.length} />}
     {positions.map((position, i) => { const isPrimary = controls[i] === primaryControl; return <RotaryControlUnit key={i} position={position} label={controls[i]} style={knobStyle} baseRadius={knobRadius} isPrimary={isPrimary} color={isPrimary ? accentColors[0] : hardwareColors[i % hardwareColors.length]} labelColor={graphicColor} labelWidth={Math.min(.68, size.width * .25)} labelSurfaceY={labelSurfaceY} enclosureHeight={size.height} showLabel={true} font={utilityFont} labelPlacement={hybridLayout?.knobCenters[i]?.labelPlacement} />; })}
     {Array.from({ length: pedal.toggleCount }, (_, i) => { const x = pedal.toggleCount === 1 ? -size.width * .22 : (i - (pedal.toggleCount - 1) / 2) * size.width * .2; return <ToggleSwitch key={i} position={[x, .64, indicatorZ]} label={toggleLabels[i] || (i ? 'VOICE' : 'MODE')} surfaceY={surfaceY} color="#f4f1e6" />; })}
