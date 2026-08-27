@@ -534,32 +534,53 @@ function MaximalArtwork({ pedal, size, surfaceY }: { pedal: Pedal; size: { width
   </group>;
 }
 
+function roundedTopFaceGeometry(width: number, height: number) {
+  const radius = Math.min(width, height) * .085; const shape = new THREE.Shape();
+  shape.moveTo(-width / 2 + radius, -height / 2); shape.lineTo(width / 2 - radius, -height / 2);
+  shape.quadraticCurveTo(width / 2, -height / 2, width / 2, -height / 2 + radius); shape.lineTo(width / 2, height / 2 - radius);
+  shape.quadraticCurveTo(width / 2, height / 2, width / 2 - radius, height / 2); shape.lineTo(-width / 2 + radius, height / 2);
+  shape.quadraticCurveTo(-width / 2, height / 2, -width / 2, height / 2 - radius); shape.lineTo(-width / 2, -height / 2 + radius);
+  shape.quadraticCurveTo(-width / 2, -height / 2, -width / 2 + radius, -height / 2);
+  const geometry = new THREE.ShapeGeometry(shape, 24); geometry.rotateX(-Math.PI / 2); return geometry;
+}
 function SheetDesignArtwork({ source, index, size, surfaceY, placement = 'center-small' }: { source: 'motif-sheet' | 'illustration-sheet'; index: number; size: { width: number; height: number }; surfaceY: number; placement?: MotifPlacement }) {
-  const columns = source === 'motif-sheet' ? 5 : 3; const rows = columns; const cellCount = columns * rows; const resolvedIndex = Math.abs(index) % cellCount;
+  const cellCount = source === 'motif-sheet' ? 25 : 9; const resolvedIndex = Math.abs(index) % cellCount;
   const texture = useMemo(() => {
-    const assetName = source === 'motif-sheet' ? 'pedal-forge-motif-grid-keyed.webp' : 'pedal-forge-illustration-grid.webp';
+    const prefix = source === 'motif-sheet' ? 'pedal-forge-motif-' : 'pedal-forge-illustration-';
+    const assetName = `${prefix}${String(resolvedIndex).padStart(2, '0')}.webp`;
     const next = new THREE.TextureLoader().load(new URL(assetName, window.location.href).href);
-    const cellWidth = 1 / columns; const cellHeight = 1 / rows; const inset = source === 'motif-sheet' ? .012 : .018; const column = resolvedIndex % columns; const row = Math.floor(resolvedIndex / columns);
     next.colorSpace = THREE.SRGBColorSpace; next.wrapS = THREE.ClampToEdgeWrapping; next.wrapT = THREE.ClampToEdgeWrapping;
-    next.repeat.set(cellWidth - inset * 2, cellHeight - inset * 2); next.offset.set(column * cellWidth + inset, 1 - (row + 1) * cellHeight + inset);
     next.minFilter = THREE.LinearMipmapLinearFilter; next.magFilter = THREE.LinearFilter; return next;
-  }, [columns, resolvedIndex, source]);
-  useEffect(() => () => texture.dispose(), [texture]);
-  if (source === 'illustration-sheet') return <mesh position={[0, surfaceY - .027, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow><planeGeometry args={[size.width * .94, size.height * .94]} /><meshStandardMaterial map={texture} roughness={.62} metalness={.03} polygonOffset polygonOffsetFactor={-3} /></mesh>;
+  }, [resolvedIndex, source]);
+  const faceGeometry = useMemo(() => source === 'illustration-sheet' ? roundedTopFaceGeometry(size.width * .94, size.height * .94) : null, [size.height, size.width, source]);
+  useEffect(() => () => { texture.dispose(); faceGeometry?.dispose(); }, [faceGeometry, texture]);
+  if (source === 'illustration-sheet') return <mesh geometry={faceGeometry!} position={[0, surfaceY - .018, 0]} receiveShadow><meshStandardMaterial map={texture} roughness={.62} metalness={.03} polygonOffset polygonOffsetFactor={-3} /></mesh>;
   const positions: Record<MotifPlacement, [number, number]> = { 'lower-right': [size.width * .27, size.height * .19], 'lower-left': [-size.width * .27, size.height * .19], 'upper-right': [size.width * .27, -size.height * .2], 'upper-left': [-size.width * .27, -size.height * .2], 'center-small': [0, size.height * .02], 'above-footswitch': [0, size.height * .2], 'between-knobs': [0, -size.height * .03], 'diagonal-corner': [size.width * .24, size.height * .16] };
   const [x, z] = positions[placement]; const side = Math.min(size.width * .34, size.height * .25, 1.08);
   return <mesh position={[x, surfaceY - .014, z]} rotation={[-Math.PI / 2, 0, placement === 'diagonal-corner' ? -.14 : 0]}><planeGeometry args={[side, side]} /><meshStandardMaterial map={texture} transparent alphaTest={.04} roughness={.58} metalness={.02} polygonOffset polygonOffsetFactor={-3} /></mesh>;
 }
 function ProceduralPatternArtwork({ style, size, surfaceY, colors }: { style: PatternStyle; size: { width: number; height: number }; surfaceY: number; colors: string[] }) {
-  const ink = colors[0] || '#f4f1e6'; const secondary = colors[1] || '#33dcff'; const baseY = surfaceY - .019;
-  const background = <mesh position={[0, surfaceY - .03, 0]} rotation={[-Math.PI / 2, 0, 0]}><planeGeometry args={[size.width * .94, size.height * .94]} /><meshBasicMaterial color={secondary} transparent opacity={.26} depthWrite={false} toneMapped={false} /></mesh>;
-  if (style === 'stripe') return <group>{background}{Array.from({ length: 11 }, (_, i) => <mesh key={i} position={[(i - 5) * size.width * .1, baseY, 0]} rotation={[0, .32, 0]}><boxGeometry args={[size.width * .055, .012, size.height * 1.08]} /><meshBasicMaterial color={i % 2 ? ink : secondary} transparent opacity={.68} depthWrite={false} /></mesh>)}</group>;
-  if (style === 'checker') return <group>{background}{Array.from({ length: 30 }, (_, i) => { const columns = 6; const row = Math.floor(i / columns); const column = i % columns; if ((row + column) % 2) return null; return <mesh key={i} position={[(column - 2.5) * size.width * .15, baseY, (row - 2) * size.height * .18]}><boxGeometry args={[size.width * .145, .012, size.height * .175]} /><meshBasicMaterial color={column % 3 ? ink : secondary} transparent opacity={.64} depthWrite={false} /></mesh>; })}</group>;
-  if (style === 'dot') return <group>{background}{Array.from({ length: 24 }, (_, i) => { const columns = 6; const row = Math.floor(i / columns); const column = i % columns; return <mesh key={i} position={[(column - 2.5) * size.width * .15, baseY, (row - 1.5) * size.height * .2]}><cylinderGeometry args={[Math.min(size.width, size.height) * (i % 3 === 0 ? .045 : .027), Math.min(size.width, size.height) * (i % 3 === 0 ? .045 : .027), .012, 20]} /><meshBasicMaterial color={i % 2 ? ink : secondary} transparent opacity={.72} depthWrite={false} /></mesh>; })}</group>;
-  if (style === 'herringbone') return <group>{background}{Array.from({ length: 20 }, (_, i) => { const columns = 5; const row = Math.floor(i / columns); const column = i % columns; const left = i % 2 === 0; return <mesh key={i} position={[(column - 2) * size.width * .19, baseY, (row - 1.5) * size.height * .22]} rotation={[0, left ? .72 : -.72, 0]}><boxGeometry args={[size.width * .035, .014, size.height * .24]} /><meshBasicMaterial color={left ? ink : secondary} transparent opacity={.72} depthWrite={false} /></mesh>; })}</group>;
-  return <group>{background}{Array.from({ length: 18 }, (_, i) => { const columns = 6; const row = Math.floor(i / columns); const column = i % columns; return <mesh key={i} position={[(column - 2.5) * size.width * .15 + (row % 2 ? size.width * .075 : 0), baseY, (row - 1) * size.height * .25]} rotation={[-Math.PI / 2, 0, 0]}><torusGeometry args={[Math.min(size.width, size.height) * .09, .018, 6, 20, Math.PI]} /><meshBasicMaterial color={i % 2 ? ink : secondary} transparent opacity={.7} depthWrite={false} /></mesh>; })}</group>;
-}
-function TypographyTitle({ pedal, size, surfaceY, controlCount, displayActive, placement }: { pedal: Pedal; size: { width: number; height: number }; surfaceY: number; controlCount: number; displayActive: boolean; placement?: { x: number; z: number; width: number } }) {
+  const ink = colors[0] || '#f4f1e6'; const secondary = colors[1] || '#33dcff';
+  const texture = useMemo(() => {
+    const canvas = document.createElement('canvas'); const width = 768; const height = Math.max(768, Math.round(width * size.height / size.width)); canvas.width = width; canvas.height = height;
+    const ctx = canvas.getContext('2d')!; ctx.clearRect(0, 0, width, height); ctx.fillStyle = secondary; ctx.globalAlpha = .28; ctx.fillRect(0, 0, width, height); ctx.globalAlpha = .74;
+    if (style === 'stripe') {
+      ctx.save(); ctx.translate(width / 2, height / 2); ctx.rotate(-.28); const band = width * .085; for (let x = -width; x < width; x += band * 2) { ctx.fillStyle = ink; ctx.fillRect(x, -height, band, height * 2); } ctx.restore();
+    } else if (style === 'checker') {
+      const columns = 6; const cell = width / columns; const rows = Math.ceil(height / cell); for (let row = 0; row < rows; row++) for (let column = 0; column < columns; column++) if ((row + column) % 2 === 0) { ctx.fillStyle = (row + column) % 4 ? ink : secondary; ctx.fillRect(column * cell, row * cell, cell, cell); }
+    } else if (style === 'dot') {
+      const columns = 6; const gapX = width / columns; const gapY = gapX * .92; for (let row = 0; row * gapY < height + gapY; row++) for (let column = 0; column < columns; column++) { const radius = gapX * ((row + column) % 3 === 0 ? .22 : .13); ctx.beginPath(); ctx.arc((column + .5) * gapX + (row % 2 ? gapX * .18 : 0), (row + .5) * gapY, radius, 0, Math.PI * 2); ctx.fillStyle = (row + column) % 2 ? ink : secondary; ctx.fill(); }
+    } else if (style === 'herringbone') {
+      const unit = width / 5; ctx.strokeStyle = ink; ctx.lineWidth = unit * .2; ctx.lineCap = 'square'; for (let row = -1; row * unit < height + unit; row++) for (let column = -1; column < 6; column++) { const x = column * unit; const y = row * unit; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + unit * .5, y + unit * .5); ctx.lineTo(x + unit, y); ctx.stroke(); }
+    } else {
+      const radius = width / 11; ctx.strokeStyle = ink; ctx.lineWidth = Math.max(8, radius * .16); for (let row = 0; row * radius < height + radius; row++) for (let column = -1; column < 12; column++) { const x = column * radius * 2 + (row % 2 ? radius : 0); const y = row * radius * .92; ctx.beginPath(); ctx.arc(x, y, radius, Math.PI, Math.PI * 2); ctx.stroke(); }
+    }
+    ctx.globalAlpha = 1; const next = new THREE.CanvasTexture(canvas); next.colorSpace = THREE.SRGBColorSpace; next.anisotropy = 4; next.minFilter = THREE.LinearMipmapLinearFilter; next.magFilter = THREE.LinearFilter; return next;
+  }, [ink, secondary, size.height, size.width, style]);
+  const geometry = useMemo(() => roundedTopFaceGeometry(size.width * .94, size.height * .94), [size.height, size.width]);
+  useEffect(() => () => { texture.dispose(); geometry.dispose(); }, [geometry, texture]);
+  return <mesh geometry={geometry} position={[0, surfaceY - .018, 0]} receiveShadow><meshBasicMaterial map={texture} transparent depthWrite={false} toneMapped={false} polygonOffset polygonOffsetFactor={-3} /></mesh>;
+}function TypographyTitle({ pedal, size, surfaceY, controlCount, displayActive, placement }: { pedal: Pedal; size: { width: number; height: number }; surfaceY: number; controlCount: number; displayActive: boolean; placement?: { x: number; z: number; width: number } }) {
   const name = pedal.name.replace(' // LIMITED', '');
   const typography = pedal.typography || { mode: 'standard', displayFontCategory: 'modern_sans', utilityFontCategory: 'sans', productNameScale: .75, letterSpacing: .03, rotation: 0, outline: true, shadow: false } as TypographyDesign;
   const font = pedal.kanjiUsage === 'product-name' ? kanjiFontStack(pedal.kanjiStyle) : displayFontStack(typography.displayFontCategory);
