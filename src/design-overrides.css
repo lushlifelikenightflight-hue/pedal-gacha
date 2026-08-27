@@ -7,7 +7,6 @@
 /* POST-FORGE DIRECT EDITOR / EDITORIAL COVER TOP / PC X SHARE */
 .editorial-cover-capture{position:fixed;left:-10000px;top:0;width:720px;height:980px;pointer-events:none;opacity:0}
 .editorial-cover-capture.editorial-top-capture{width:1200px;height:675px}
-.font-live-preview{grid-column:1/-1;display:block;min-height:2.6rem;padding:.65rem .75rem;border:1px solid #3d4938;background:#111712;color:#f4f1e8;font-size:1.35rem;line-height:1.35;overflow:hidden}
 .decoration-align{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;margin-top:.7rem;background:#475440}
 .decoration-align>span{grid-column:1/-1;padding:.55rem .65rem;background:#111712;color:#b7ff19;font:800 .62rem/1 var(--mono);letter-spacing:.14em}
 .decoration-align button,.finish-history-actions button,.free-view-button{min-height:34px;border:0;background:#1a221a;color:#dfe8d9;font:750 .58rem/1.2 var(--mono);text-transform:uppercase}
