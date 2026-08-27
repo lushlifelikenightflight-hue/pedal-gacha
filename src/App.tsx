@@ -15,7 +15,7 @@ type InputSource = 'guitar' | 'bass' | 'synth-keys' | 'drum-sampler' | 'acoustic
 type SignalProfile = { level: 'instrument' | 'line-tolerant' | 'piezo'; headroom: 'standard' | 'high'; frequencyRange: 'standard' | 'wide-low' | 'full-range'; inputImpedance: 'standard' | 'high'; stereoPreferred: boolean; designNotes: string[] };
 type EffectTypeChoice = 'random' | 'boost' | 'drive' | 'fuzz' | 'compressor' | 'eq-filter' | 'modulation' | 'phaser' | 'tremolo' | 'delay' | 'reverb' | 'pitch' | 'synth' | 'looper' | 'glitch' | 'experimental' | 'multi' | 'tuner';
 type Mood = 'focused' | 'restless' | 'dreaming' | 'feral';
-type ColorChoice = 'acid' | 'violet' | 'ice' | 'ember';
+type ColorChoice = 'acid' | 'violet' | 'ice' | 'ember' | 'monochrome' | 'high-tone';
 type ToneChoice = Choice | 'random';
 type MoodChoice = Mood | 'random';
 type FinishChoice = ColorChoice | 'random';
@@ -93,6 +93,8 @@ const paletteFamilies: Record<ColorChoice, [string, string][]> = {
   violet: [['#b58aff', '#4b2266'], ['#d6b5ff', '#241735'], ['#ff9bc9', '#4a1f3a'], ['#aa94d9', '#293049'], ['#d2c7ff', '#43306c']],
   ice: [['#8ceaff', '#17485a'], ['#e7fbff', '#29414a'], ['#78c8d2', '#25363f'], ['#b8e3ef', '#1a2740'], ['#d8f2eb', '#37504d']],
   ember: [['#ff8056', '#5b2718'], ['#ffb36b', '#472b20'], ['#d85b39', '#311814'], ['#f1c27d', '#5a3324'], ['#ff7043', '#49302a']],
+  monochrome: [['#202320', '#f4f4f0'], ['#444844', '#c8cac6'], ['#f1f2ee', '#8d908d'], ['#e4e6e1', '#454945'], ['#d7d9d5', '#0a0b0a']],
+  'high-tone': [['#ff3f8e', '#fff06a'], ['#2f70ff', '#77e6ff'], ['#7138d8', '#c7a2ff'], ['#e94328', '#ff9a6f'], ['#16754e', '#86f0b3']],
 };
 const labels = {
   clarity: ['GLASS', 'LUCID', 'WHITE NOISE', 'MIRROR'], loud: ['RAMPAGE', 'IRON', 'FURNACE', 'VOLTAGE'],
@@ -315,7 +317,7 @@ export function generate(values: ForgeInput, variant = false): Pedal {
   const inputSources = resolveInputSources(values, r); const signalProfile = signalProfileFor(inputSources); const instrument = legacyInstrumentFor(inputSources);
   const sound = values.sound === 'random' ? pick<Choice>(['clarity', 'loud', 'broken', 'cosmic']) : values.sound;
   const mood = values.mood === 'random' ? pick<Mood>(['focused', 'restless', 'dreaming', 'feral']) : values.mood;
-  const colorChoice = values.colorChoice === 'random' ? pick<ColorChoice>(['acid', 'violet', 'ice', 'ember']) : values.colorChoice;
+  const colorChoice = values.colorChoice === 'random' ? pick<ColorChoice>(['acid', 'violet', 'ice', 'ember', 'monochrome', 'high-tone']) : values.colorChoice;
   const brokenSignalBrief = inputSources.length === 1 && inputSources[0] === 'bass' && values.effectType === 'drive' && sound === 'broken' && colorChoice === 'violet' && mood === 'restless';
   const freedom = ((values.inputSources?.length ? 0 : 1) + [values.effectType, values.sound, values.colorChoice, values.mood].filter(value => value === 'random').length) / 5;
   const rarity = Math.min(5, 1 + Math.floor(r() * r() * 5) + (variant ? 1 : 0));
@@ -1195,7 +1197,7 @@ function Stage({ pedal, phase, canvasRef, reduce, resetToken, viewMode, runtimeM
     }
     return viewMode === 'studio' ? [distance * .42, distance * .88, distance * .72] : viewMode === 'hero' ? [distance * .76, distance * .48, distance * .82] : floorless ? [distance * .38, distance * .62, distance * .86] : [distance * .56, distance * .74, distance * .82];
   }, [directMarkEditing, distance, floorless, inspectSurface, topView, viewMode]);
-  const background = viewMode === 'white' ? '#f7f7f4' : viewMode === 'dark' ? '#0d110e' : viewMode === 'studio' ? '#f4f4f1' : viewMode === 'hero' ? (pedal?.colorChoice === 'ice' ? '#dcebed' : pedal?.colorChoice === 'ember' ? '#321b16' : pedal?.colorChoice === 'violet' ? '#25172b' : '#18220f') : '#0b110d';
+  const background = viewMode === 'white' ? '#f7f7f4' : viewMode === 'dark' ? '#0d110e' : viewMode === 'studio' ? '#f4f4f1' : viewMode === 'hero' ? (pedal?.colorChoice === 'ice' ? '#dcebed' : pedal?.colorChoice === 'ember' ? '#321b16' : pedal?.colorChoice === 'violet' ? '#25172b' : pedal?.colorChoice === 'monochrome' ? '#d9dcd7' : pedal?.colorChoice === 'high-tone' ? '#f3e9c8' : '#18220f') : '#0b110d';
   const floorY = topView ? -.62 : -2.2;
   return <Canvas className="forge-canvas" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} shadows dpr={[1, 1.5]} gl={{ preserveDrawingBuffer: true, antialias: true }} onCreated={({ gl, camera }) => { canvasRef.current = gl.domElement; camera.lookAt(0, 0, 0); }} fallback={<div className="canvas-fallback">3D PREVIEW UNAVAILABLE</div>} camera={{ position: home, fov: directMarkEditing ? 26 : viewMode === 'hero' ? 34 : topView ? 36 : 38 }}>
     <RenderSettings viewMode={viewMode} />
@@ -1691,7 +1693,7 @@ export default function App() {
               <optgroup label="SPACE / DIGITAL / SPECIAL"><option value="delay">DELAY / ECHO</option><option value="reverb">REVERB</option><option value="pitch">OCTAVE / PITCH</option><option value="synth">SYNTH</option><option value="tuner">TUNER</option><option value="looper">LOOPER / FREEZE</option><option value="glitch">GLITCH / NOISE</option><option value="experimental">EXPERIMENTAL</option><option value="multi">MULTI EFFECT</option></optgroup>
             </select><small>回路系統</small></label>
             <label className="forge-select-field"><span>TONE ESSENCE</span><select value={sound} onChange={event => setSound(event.target.value as typeof sound)}><option value="random">おまかせ</option><option value="clarity">透明</option><option value="loud">轟音</option><option value="broken">壊れた音</option><option value="cosmic">宇宙的</option></select><small>音の核</small></label>
-            <label className="forge-select-field"><span>FINISH AURA</span><select value={colorChoice} onChange={event => setColor(event.target.value as typeof colorChoice)}><option value="random">おまかせ</option><option value="acid">ACID</option><option value="violet">VIOLET</option><option value="ice">ICE</option><option value="ember">EMBER</option></select><small>外装の色調</small></label>
+            <label className="forge-select-field"><span>FINISH AURA</span><select value={colorChoice} onChange={event => setColor(event.target.value as typeof colorChoice)}><option value="random">おまかせ</option><option value="acid">ACID</option><option value="violet">VIOLET</option><option value="ice">ICE</option><option value="ember">EMBER</option><option value="monochrome">MONOCHROME</option><option value="high-tone">HIGH TONE</option></select><small>外装の色調</small></label>
           </div>          <section className="maker-card" aria-label="現在のメーカー"><div><span>CURRENT MAKER</span><h3>{brandProfile.manufacturerName}</h3><p>{brandProfile.seriesName} / {brandProfile.archetype.toUpperCase()}</p></div><button type="button" onClick={() => setBrandProfile(createBrandProfile(`maker-${Date.now()}-${Math.random()}`))}>新しいメーカーを設立</button></section>
           <button className="generate forge-primary-cta" onClick={run} disabled={phase === 'cranking' || phase === 'revealing'}><span className="generate-copy"><b>{phase === 'idle' || phase === 'result' ? 'この思想から一台を錬成する' : 'FORGING...'}</b><small>{phase === 'idle' || phase === 'result' ? '02 / 錬成 — FORGE A NEW EFFECTS PEDAL' : forgeStep}</small></span><strong aria-hidden="true">→</strong></button>
         </div>
