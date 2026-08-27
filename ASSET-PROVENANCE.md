@@ -21,3 +21,10 @@
 - Representation: original procedural CanvasTexture mapped once onto rounded top-face geometry.
 - Runtime patterns: stripe, checker, dot, herringbone, and seigaiha.
 - The linked FASHIONSNAP pattern dictionary and NEXTPAGE pattern-name article were used only as vocabulary/reference; no third-party image assets were copied.
+
+## Background music
+
+- public/bgm-pedal-forge.mp3
+  - Source: project-owner supplied file BGM_PEDAL-FORGE.mp3 on 2026-08-28.
+  - SHA-256: 86C6D8148F9C69DC3059FE12F36B3E4CA868B88D53A7314C786FFB335F300DD9.
+  - Runtime use: low-volume looped site BGM, started after the first user interaction with a persistent ON/OFF control.
